@@ -1,0 +1,129 @@
+<h1 id="how-we-teach-the-ground-up-method">How we teach: the Ground Up method</h1>
+<p>Build an OS teaches operating-system development from power-on to a self-hosting system. The reading is the OSDev Wiki, copied word for word. Our work is the order, the framing around each article, and the checkpoints. We do not rewrite the wiki. Its contributors spent two decades getting it right, and every page here credits them.</p>
+<p>In one line, the method is: <strong>remove the reasons beginners quit, in the order they hit them, using one kernel that never gets thrown away.</strong></p>
+<h2 id="why-beginners-quit">Why beginners quit</h2>
+<p>Few people stop because a concept is too hard. They stop because of a handful of failures that pile up:</p>
+<ol type="1">
+<li><strong>Missing basics.</strong> Weak hex, assembly or calling-convention knowledge turns into bugs they cannot diagnose.</li>
+<li><strong>Toolchain pain.</strong> The host compiler, a broken linker script, an image that will not boot. Hours go by before any kernel code exists.</li>
+<li><strong>Silent crashes.</strong> A triple fault resets the machine with no output, and debugging turns into random edits.</li>
+<li><strong>No sense of order.</strong> "What next?" after the first kernel. A GUI before memory management.</li>
+<li><strong>Early choices that are expensive to undo.</strong> A custom bootloader, a microkernel with no IPC plan, switching to 64-bit halfway through.</li>
+</ol>
+<p>The core path deals with these one at a time, in that order.</p>
+<h2 id="core-principles">Core principles</h2>
+<p><strong>A first win before the theory.</strong> In about the fourth hour, before any cross-compiler, you boot a 512-byte boot sector you wrote yourself. <em>Why:</em> it shows the whole chain works (assembler, image, emulator, firmware), and that carries you through the toolchain work that follows.</p>
+<p><strong>Foundations for C programmers.</strong> Numbers and endianness, x86 registers and assembly syntax, and the stack with calling conventions come before any kernel code. Object files, linker scripts and freestanding C come before Bare Bones. <em>Why:</em> every interrupt stub and context switch you write later is a precise edit of registers and the stack. Learners who cannot read those guess.</p>
+<p><strong>Debugging before features.</strong> A whole track, the Crash Reporter, comes right after the first boot and before IRQs, memory or tasks. It covers serial logging, kprintf, GDB, the GDT and IDT taught as crash-reporting infrastructure, triple-fault diagnosis, stack traces, SSP and UBSan. <em>Why:</em> once every crash prints a vector, an address and a backtrace, bugs become things you can find rather than things you suffer through.</p>
+<p><strong>Concept, then mechanism, then policy.</strong> You read <em>Interrupts</em> before you build the IDT, and <em>Paging</em> before <em>Setting Up Paging</em>. The context switch comes before the scheduler, the frame allocator before the heap, and the VFS before any disk filesystem. <em>Why:</em> you can only debug a mechanism if you can say what it is supposed to do.</p>
+<p><strong>One kernel, always bootable.</strong> Every checkpoint adds to the same project. At the end of each module it still boots and passes its tests. <em>Why:</em> throwaway exercises teach the steps but not the integration, and integration is where kernels fail.</p>
+<p><strong>One route, with alternatives labelled.</strong> The core path assumes C, 32-bit x86, GRUB with Multiboot, and BIOS in QEMU. <em>Why:</em> the wiki's core tutorials (GDT Tutorial, Setting Up Paging, Higher Half x86 Bare Bones, Getting to Ring 3, ELF Tutorial) are written for exactly that setup. 64-bit comes later as a planned port of your existing kernel in an elective, never as a switch in the middle of the core.</p>
+<p><strong>Decisions on paper, revisited later.</strong> You keep a <code>DECISIONS.md</code>. It gets three entries: language, architecture and boot route (confirmed at the end of the Workbench), your kernel model (chosen after the heap, before processes), and your lock order. The Design Revisited elective comes back to each one once you have built the parts. <em>Why:</em> early choices made on trust should be checked against experience, not defended out of habit.</p>
+<h2 id="learner-journey">Learner journey</h2>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Track</th>
+<th>You leave with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ready</td>
+<td>1 Orientation and Foundations</td>
+<td>A scoped goal, your own boot sector, the ability to read registers and stack frames</td>
+</tr>
+<tr>
+<td>Equipped</td>
+<td>2 Workbench</td>
+<td>An i686-elf cross-compiler, freestanding libk, linker scripts, DECISIONS.md</td>
+</tr>
+<tr>
+<td>Booted</td>
+<td>3 First Boot</td>
+<td>A Multiboot kernel that prints, port I/O, Meaty Skeleton layout, <code>make run</code></td>
+</tr>
+<tr>
+<td>Unafraid</td>
+<td>4 Crash Reporter</td>
+<td>Serial log, kprintf, GDB, exception dumps, panic with backtrace, <code>make test</code></td>
+</tr>
+<tr>
+<td>Responsive</td>
+<td>5 Interrupts, Time and Input</td>
+<td>PIC, timer, wall-clock time, keyboard</td>
+</tr>
+<tr>
+<td>Addressed</td>
+<td>6 Memory</td>
+<td>Frame allocator, paging, higher half, map/unmap, heap, kernel-model decision</td>
+</tr>
+<tr>
+<td>Concurrent</td>
+<td>7 Multitasking</td>
+<td>Context switch, preemptive scheduler, locks proven by failing tests</td>
+</tr>
+<tr>
+<td>Multi-program</td>
+<td>8 User Space</td>
+<td>Ring 3, syscalls, initrd, ELF loader, spawn/wait, fd tables and pipes, libc, shell</td>
+</tr>
+<tr>
+<td>Persistent</td>
+<td>9 Storage</td>
+<td>VFS, partitions, PCI, ATA, FAT read and write, ext2, ISO 9660</td>
+</tr>
+<tr>
+<td>Your direction</td>
+<td>10 to 16 Electives</td>
+<td>Drivers and buses, ACPI/APIC/SMP, graphics and sound, networking, porting and self-hosting, 64-bit/UEFI/ARM/RISC-V, Design Revisited</td>
+</tr>
+</tbody>
+</table>
+<p>The core path is 75 lessons, about 73 hours of reading and first builds. The electives add 57 lessons.</p>
+<h2 id="anatomy-of-a-lesson-page">Anatomy of a lesson page</h2>
+<p>Each lesson is one sitting. Long articles are split across sittings: Brendan's Multi-tasking Tutorial (steps 1 to 4, 5 to 9, then 10 to 12), the keyboard (scan codes, then the 8042), FAT (read, then write) and USB. The blocks appear in this order:</p>
+<ol type="1">
+<li><strong>Header.</strong> Title, level (Beginner, Medium, Advanced, Master), time estimate, and prerequisite links that show done or not done. The time covers reading plus a first working build, not polishing.</li>
+<li><strong>Recall.</strong> Two or three questions drawn from the objectives of the prerequisite lessons ("Can you still decode a page fault error code?"), each linking back to its lesson. There is no score.</li>
+<li><strong>Why this matters now.</strong> One or two plain sentences.</li>
+<li><strong>Objectives.</strong> Two to four testable "After this lesson you can..." statements.</li>
+<li><strong>Reading.</strong> The wiki article(s), verbatim, with headings, code, tables and images kept. Each one opens with a credit line: the article title, a link to the original on wiki.osdev.org, and "OSDev Wiki contributors, CC0". The wiki's own rating and its stub, in-progress and beginner-warning flags are shown as they are. Code blocks in tutorials have no copy button by default, following the wiki's own warning against copy-paste kernels. You can turn the button on.</li>
+<li><strong>Checkpoint.</strong> One concrete task with a pass condition you can observe. Parts are labelled <strong>Predict</strong>, <strong>Break it</strong> and <strong>Harness test</strong> where they apply.</li>
+<li><strong>Stuck?</strong> Fixed links on every lesson: Troubleshooting, Triple Fault, Kernel Debugging, I Can't Get Interrupts Working, My Bootloader Does Not Work, the known-bugs pages for the James Molloy, Bran and Brokenthorn tutorials, and the Posting Checklist.</li>
+<li><strong>Further reading.</strong> Up to six optional articles, clearly marked optional.</li>
+<li><strong>Footer.</strong> Previous and next, OSDev Wiki attribution, and the Cognia Labs copyright.</li>
+</ol>
+<h2 id="difficulty-and-prerequisites">Difficulty and prerequisites</h2>
+<ul>
+<li>Levels follow the wiki's scale. The core path tops out at Advanced. Master-level work (AML, SMP startup, USB controllers, HD Audio, self-hosting) appears only in electives, and those lessons say when porting a library beats writing one.</li>
+<li>Each lesson lists the specific earlier lessons it needs, marked done or not done,, not "the previous track". Prerequisites form a graph, not a chain, so electives open as soon as they safely can. FAT reading needs the VFS and partitions; FAT writing adds ATA, not NVMe. The APIC needs ACPI tables. SMP needs the APIC timer and locks. The framebuffer needs map_page.</li>
+<li>One new failure mode per lesson. The page-fault handler exists before paging is turned on. Partition parsing is tested on a RAM disk before any disk driver exists. The I/O port helpers come before the cursor, serial or PIC code that uses them.</li>
+<li>Concrete before general: cooperative before preemptive, PIO before DMA, PIC before APIC, initrd before disks, 32-bit before 64-bit.</li>
+</ul>
+<h2 id="practice-checkpoints-and-debugging-habits">Practice, checkpoints and debugging habits</h2>
+<ul>
+<li><strong>Predict, then observe.</strong> Before a lab, write down the state you expect (CR0 bits, selector values, the PIC mask, which pages are mapped), then check it with the QEMU monitor (<code>info registers</code>, <code>info pic</code>, <code>info tlb</code>, <code>info lapic</code>) or GDB. A mismatch is the lesson.</li>
+<li><strong>Break it on purpose.</strong> Core checkpoints cause a known failure once: a missing boot signature, a missing Multiboot magic, a bad GDT access byte, an empty IDT, a skipped EOI, an unmapped page, <code>esp0</code> left at zero in the TSS, a torn 64-bit read and a lock-free counter, a looping FAT cluster chain. When the same symptom turns up by accident later, you recognise it. Where two causes give the same symptom (no EOI, or not reading port 0x60), the checkpoint makes you try both.</li>
+<li><strong>A test harness that grows.</strong> At the end of the Crash Reporter, <code>make test</code> boots QEMU headless, logs serial output to a file, and exits through <code>isa-debug-exit</code>; a small wrapper maps QEMU's odd exit status (33 for pass, anything else for fail or timeout) to 0 or 1. Later checkpoints marked "harness test" add to the suite, and the 64-bit port is judged by the same suite.</li>
+<li><strong>Artifacts in your repository:</strong> <code>DECISIONS.md</code>, <code>MEMORY.md</code> and <code>DEBUGGING.md</code>, plus <code>make run</code>, <code>make debug</code> and <code>make test</code>.</li>
+<li>Progress is a plain checklist, kept in your own browser. No account.</li>
+</ul>
+<h2 id="core-path-electives-and-the-library">Core path, electives and the library</h2>
+<ul>
+<li><strong>Path</strong>: tracks 1 to 9 in order, with the next unfinished lesson highlighted and a "Continue where you left off" button.</li>
+<li><strong>Electives</strong>: tracks 10 to 16, listed after the core path and grouped by goal: drivers and buses, multicore and platform features, graphics and sound, networking, porting software, other CPUs and firmware, and revisiting the design. Each one lists the core lessons it builds on and says when you have finished them.</li>
+<li><strong>Library</strong>: all 758 wiki articles, browsable by wiki category and searchable. Articles used in lessons link back to them ("Read in context: Memory, Turn paging on"). Chipset references, historical formats and niche platforms live here.</li>
+</ul>
+<h2 id="what-we-deliberately-do-not-do">What we deliberately do not do</h2>
+<ul>
+<li>We do not paraphrase, summarise or "improve" the wiki text. Our own words are limited to why, objectives, checkpoints and navigation.</li>
+<li>No streaks, points, badges, leaderboards, countdowns or "only N spots left". Progress is a checklist.</li>
+<li>No mid-course mode switch. 64-bit is a separate, planned port.</li>
+<li>No copy-paste kernels. Code copy is off by default, and checkpoints ask for observed behaviour, not matching code.</li>
+<li>No time estimates that hide multi-week work. Self-hosting, a window compositor and filesystem writes say plainly that they are projects, and the estimate covers the reading and first milestone.</li>
+<li>We do not teach writing your own bootloader on the core path. The boot sector is a first win and a lesson in what GRUB does for you, not your production loader.</li>
+</ul>
+<h2 id="credit-and-copyright">Credit and copyright</h2>
+<p>All lesson reading comes from the OSDev Wiki (wiki.osdev.org), written by its contributors and released under CC0. Credit appears on every article and in the site footer. The platform, curriculum and original text are © Dron Guin, founder, Cognia Labs.</p>

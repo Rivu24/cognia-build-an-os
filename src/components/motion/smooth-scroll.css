@@ -1,0 +1,7 @@
+/* While Lenis drives the page it writes window.scrollTo every frame. The site's global `scroll-behavior: smooth`
+   would turn each of those writes into a native smooth scroll of its own: the page lags behind Lenis, wheel scrolling
+   feels doubly smoothed, and programmatic glides stop short. Lenis does the smoothing; the browser must jump. */
+html.lenis,
+html.lenis body {
+  scroll-behavior: auto !important;
+}

@@ -1,0 +1,240 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* COGNIA brand system, applied to Build an OS.
+   Black canvas, white type, Instrument Sans, labels in JetBrains Mono, 1px hairlines, square corners.
+   Colour always means a sub-brand; this product carries the master mark, so the UI and the
+   motion graphics are monochrome: brightness, glow, weight and motion carry meaning. */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Instrument Sans', Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-soft: var(--soft);
+  --color-soft-2: var(--soft-2);
+  --color-code: var(--code);
+  --color-sidebar: var(--background);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-ring: var(--ring);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
+/* light: opt-in only (class "light" on <html>, no "dark") */
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(0, 0, 0, .04);
+  --secondary-foreground: #111111;
+  --muted: rgba(0, 0, 0, .04);
+  --muted-foreground: #5a5a5a;
+  --accent: rgba(0, 0, 0, .07);
+  --accent-foreground: #111111;
+  --destructive: #840000;
+  --border: rgba(0, 0, 0, .16);
+  --input: rgba(0, 0, 0, .3);
+  --ring: #111111;
+  --radius: 0px;
+  --faint: #8a8a8a;
+  --line: rgba(0, 0, 0, .16);
+  --line-strong: rgba(0, 0, 0, .3);
+  --soft: rgba(0, 0, 0, .04);
+  --soft-2: rgba(0, 0, 0, .07);
+  --code: #f6f6f4;
+  --g300: #333333;
+  /* motion-graphic tokens */
+  --viz-bg: #ffffff;
+  --viz-fg: #111111;
+  --viz-dim: #6a6a6a;
+  --viz-faint: rgba(0, 0, 0, .14);
+  --viz-glow: rgba(0, 0, 0, .18);
+  color-scheme: light;
+}
+
+/* dark: the brand default (class "dark" on <html>) */
+.dark {
+  --background: #000000;
+  --foreground: #ececea;
+  --card: #000000;
+  --card-foreground: #ececea;
+  --popover: #0a0a0a;
+  --popover-foreground: #ececea;
+  --primary: #ececea;
+  --primary-foreground: #000000;
+  --secondary: rgba(255, 255, 255, .055);
+  --secondary-foreground: #ececea;
+  --muted: rgba(255, 255, 255, .055);
+  --muted-foreground: #a3a3a3;
+  --accent: rgba(255, 255, 255, .09);
+  --accent-foreground: #ececea;
+  --destructive: #f09494;
+  --border: rgba(255, 255, 255, .16);
+  --input: rgba(255, 255, 255, .28);
+  --ring: #ececea;
+  --faint: #6e6e6e;
+  --line: rgba(255, 255, 255, .16);
+  --line-strong: rgba(255, 255, 255, .28);
+  --soft: rgba(255, 255, 255, .055);
+  --soft-2: rgba(255, 255, 255, .09);
+  --code: #0b0b0b;
+  --g300: #c4c4c2;
+  --viz-bg: #000000;
+  --viz-fg: #ececea;
+  --viz-dim: #8c8c8a;
+  --viz-faint: rgba(255, 255, 255, .14);
+  --viz-glow: rgba(255, 255, 255, .55);
+  color-scheme: dark;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { @apply font-sans; -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--foreground); color: var(--background); }
+  :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  [id] { scroll-margin-top: 80px; }
+}
+
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* ───── brand primitives ───── */
+.wordmark { font-weight: 400; text-transform: uppercase; letter-spacing: .3em; line-height: 1; }
+.eyebrow { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em; color: var(--muted-foreground); text-transform: uppercase; }
+.label { font-size: 10.5px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: var(--muted-foreground); }
+.h-rule { box-shadow: inset 5px 0 0 var(--foreground); padding-left: 16px; }
+.fall { background: linear-gradient(180deg, #3a3a3a 0%, #000 88%); color: #fff; }
+svg.mark { display: block; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: square; stroke-linejoin: miter; overflow: visible; }
+.dot { width: 7px; height: 7px; border-radius: 9999px; background: currentColor; flex: none; display: inline-block; }
+
+/* ───── verbatim OSDev Wiki article content ───── */
+.prose-wiki { max-width: 760px; font-size: 16.5px; line-height: 1.75; overflow-wrap: break-word; }
+.prose-wiki > * + * { margin-top: 1em; }
+.prose-wiki h2 { font-size: clamp(21px, 2.2vw, 26px); font-weight: 600; letter-spacing: -.02em; line-height: 1.2; margin-top: 2.2em; padding-top: .6em; border-top: 1px solid var(--line); }
+.prose-wiki h3 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; margin-top: 1.8em; }
+.prose-wiki h4, .prose-wiki h5, .prose-wiki h6 { font-size: 16px; font-weight: 600; margin-top: 1.5em; }
+.prose-wiki a { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: .2em; overflow-wrap: anywhere; }
+.prose-wiki a:hover { text-decoration-color: currentColor; }
+.prose-wiki a.ext::after { content: "↗"; font-size: .75em; margin-left: 2px; color: var(--muted-foreground); }
+.prose-wiki a.wk-missing { color: var(--muted-foreground); }
+.prose-wiki ul, .prose-wiki ol { padding-left: 1.4em; }
+.prose-wiki ul { list-style: disc; }
+.prose-wiki ol { list-style: decimal; }
+.prose-wiki li + li { margin-top: .3em; }
+.prose-wiki dl dt { font-weight: 600; margin-top: .8em; }
+.prose-wiki dl dd { margin-left: 1.2em; }
+.prose-wiki blockquote { border-left: 3px solid var(--line-strong); padding: 2px 0 2px 16px; color: var(--muted-foreground); }
+.prose-wiki strong, .prose-wiki b { font-weight: 600; }
+.prose-wiki hr { border: 0; border-top: 1px solid var(--line); }
+.prose-wiki img { max-width: 100%; height: auto; display: block; background: #fff; border: 1px solid var(--line); }
+.prose-wiki p > img { display: inline-block; vertical-align: middle; }
+.prose-wiki figure { margin: 1.4em 0; }
+.prose-wiki figcaption { font-size: 13px; color: var(--muted-foreground); margin-top: 6px; }
+.prose-wiki :not(pre) > code { font-family: var(--font-mono); font-size: .86em; background: var(--soft-2); padding: .1em .35em; overflow-wrap: anywhere; }
+.prose-wiki pre { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.6; background: var(--code); border: 1px solid var(--line); padding: 14px 16px; overflow-x: auto; tab-size: 4; max-width: 100%; }
+.prose-wiki pre code { background: none; padding: 0; font-size: inherit; }
+.prose-wiki div.sourceCode { position: relative; margin-top: 1em; }
+.prose-wiki div.sourceCode pre { margin: 0; }
+.prose-wiki .table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); }
+.prose-wiki table { border-collapse: collapse; font-size: 14px; line-height: 1.5; min-width: 100%; }
+.prose-wiki th, .prose-wiki td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+.prose-wiki th { background: var(--soft); font-weight: 600; }
+.prose-wiki th p, .prose-wiki td p { margin: 0; }
+.prose-wiki caption { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; color: var(--muted-foreground); text-align: left; padding: 6px 10px; }
+.prose-wiki sup { font-size: .7em; }
+/* monochrome syntax highlighting: weight and tone carry meaning */
+.prose-wiki code span.kw, .prose-wiki code span.cf { font-weight: 600; color: var(--foreground); }
+.prose-wiki code span.dt { font-style: italic; }
+.prose-wiki code span.co, .prose-wiki code span.do, .prose-wiki code span.cv, .prose-wiki code span.an { color: var(--faint); font-style: italic; }
+.prose-wiki code span.st, .prose-wiki code span.ch, .prose-wiki code span.ss { color: var(--g300); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: .25em; }
+.prose-wiki code span.dv, .prose-wiki code span.bn, .prose-wiki code span.fl, .prose-wiki code span.cn { color: var(--g300); }
+.prose-wiki code span.pp, .prose-wiki code span.im, .prose-wiki code span.op { color: var(--muted-foreground); }
+/* wiki notices */
+.prose-wiki .wk-note { border: 1px solid var(--line); border-left: 3px solid var(--foreground); padding: 12px 16px; background: var(--soft); font-size: 14.5px; }
+.prose-wiki .wk-note p { margin: 0; }
+.prose-wiki .wk-note p + p { margin-top: .4em; }
+.prose-wiki .wk-note-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-foreground); margin-right: 8px; }
+.prose-wiki .wk-stub, .prose-wiki .wk-progress, .prose-wiki .wk-style { border-left-color: var(--line-strong); }
+.prose-wiki .wk-rating { display: inline-block; font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); padding: 4px 8px; color: var(--muted-foreground); }
+.prose-wiki .wk-main { font-size: 14px; color: var(--muted-foreground); }
+.prose-wiki .wk-yes, .prose-wiki .wk-no, .prose-wiki .wk-maybe, .prose-wiki .wk-na { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.prose-wiki .wk-yes::before { content: "● "; }
+.prose-wiki .wk-no::before { content: "○ "; }
+.prose-wiki .wk-maybe::before { content: "◐ "; }
+.prose-wiki .wk-na { color: var(--muted-foreground); }
+.prose-wiki .wk-abbr { text-decoration: underline dotted; cursor: help; }
+.prose-wiki .wk-quote-src { display: block; text-align: right; color: var(--muted-foreground); font-size: 13.5px; }
+.prose-wiki .wk-endnote { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); }
+.prose-wiki .wk-navbox { border: 1px solid var(--line); padding: 12px 16px; font-size: 13.5px; background: var(--soft); }
+.prose-wiki .wk-navbox p { margin: 0; }
+.prose-wiki .wk-navbox-title { font-weight: 600; margin-bottom: 6px; }
+.prose-wiki .wk-navbox-row { padding: 5px 0; border-top: 1px solid var(--line); }
+.prose-wiki .wk-navbox-group { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); margin-right: 8px; }
+.prose-wiki .wk-book, .prose-wiki .wk-card { border: 1px solid var(--line); padding: 12px 16px; font-size: 14.5px; }
+.prose-wiki .wk-card-title { font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+.prose-wiki .wk-infobox { border: 1px solid var(--line); font-size: 13.5px; border-collapse: collapse; }
+.prose-wiki .wk-flag { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+.copy-btn { position: absolute; top: 6px; right: 6px; font-family: var(--font-mono); font-size: 10.5px; padding: 5px 7px; background: var(--background); color: var(--muted-foreground); border: 1px solid var(--line); cursor: pointer; }
+
+/* home journey: the scroll cue's falling light and the sound prompt's arrival */
+@keyframes journey-cue {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+@keyframes journey-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* the site arriving after the onboarding: the rail slides in from the left, the top bar drops in */
+@keyframes ob-rail { from { transform: translateX(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ob-bar { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+aside.ob-arrive { animation: ob-rail 1.2s cubic-bezier(.16, 1, .3, 1) .15s both; }
+header.ob-arrive { animation: ob-bar 1s cubic-bezier(.16, 1, .3, 1) .15s both; }
+@media (prefers-reduced-motion: reduce) { aside.ob-arrive, header.ob-arrive { animation: none; } }

@@ -1,0 +1,16 @@
+# dependencies and build output
+node_modules
+dist
+
+# local caches
+tools/cache
+__pycache__/
+*.pyc
+
+# third-party media not cleared for redistribution (see NOTICE.md)
+music/*.mp3
+*.mp4
+
+# env / secrets
+.env
+.env.*

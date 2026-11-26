@@ -1,0 +1,456 @@
+{
+  "id": "p",
+  "kind": "prereq",
+  "title": "Prerequisites: Everything You Need Before Lesson 1",
+  "summary": "The knowledge the OSDev community expects before you write a kernel: numbers and memory, C for systems work, assembly, how code becomes a program, and a working toolbox. Take only the modules you need.",
+  "goal": "Read hex and memory layouts fluently, write C that is safe next to hardware, read and write basic x86 assembly, explain what the compiler and linker produce, and drive GCC, Make, Git, QEMU and GDB from a Unix-like shell.",
+  "modules": [
+    {
+      "id": "p1",
+      "title": "Start here",
+      "summary": "What the community expects you to know, how to tell where you stand, and how to learn and ask well.",
+      "lessons": [
+        {
+          "id": "p1l1",
+          "title": "What you need to know before writing a kernel",
+          "level": 1,
+          "minutes": 15,
+          "articles": ["Required Knowledge"],
+          "further": ["Getting Started", "Introduction"],
+          "why": "Kernel work assumes skills no tutorial teaches along the way. Knowing the list up front tells you which modules here you can skip and which you must not.",
+          "objectives": [
+            "List the skill areas the OSDev community expects before kernel work.",
+            "Mark each area as solid, shaky or missing for yourself."
+          ],
+          "checkpoint": "Write down the skill areas from the reading and rate yourself on each: solid, shaky or missing. Every shaky or missing area maps to a module in this section; that is your study plan.",
+          "prereq": []
+        },
+        {
+          "id": "p1l2",
+          "title": "The computer science underneath",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["Basic Theory Of Computer Science"],
+          "further": ["Books"],
+          "why": "Everything later rests on how digital circuits represent and move bits. A clear picture of logic, circuits and abstraction layers makes hardware chapters readable instead of magical.",
+          "objectives": [
+            "Explain how layers of abstraction manage the complexity of an electronic system.",
+            "Describe what logic gates do with bits."
+          ],
+          "checkpoint": "In your own words, explain the layers between a logic gate and a running program, and name one layer an OS developer has to reach below that an application developer never sees.",
+          "prereq": ["p1l1"]
+        },
+        {
+          "id": "p1l3",
+          "title": "Learning well and asking for help",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["How To Ask Questions"],
+          "further": ["Books", "Getting Started"],
+          "why": "You will get stuck, and the OSDev community is your best help. A well-asked question gets an answer; a vague one gets ignored. Writing it well often solves the problem before you post.",
+          "objectives": [
+            "Write a question that states your goal, what you tried and the exact failure.",
+            "Know what research to do before asking."
+          ],
+          "checkpoint": "Take a bug you hit recently (any project) and write it up as a forum question following the reading: goal, environment, minimal code, exact output, what you already tried.",
+          "prereq": ["p1l1"]
+        }
+      ]
+    },
+    {
+      "id": "p2",
+      "title": "Numbers, bits and memory",
+      "summary": "How values look to the hardware: binary and hex, byte order, real numbers, and where a program's data lives.",
+      "lessons": [
+        {
+          "id": "p2l1",
+          "title": "Binary and hexadecimal by hand",
+          "level": 1,
+          "minutes": 30,
+          "articles": ["Binary Notation", "Hexadecimal Notation"],
+          "further": ["Basic Theory Of Computer Science"],
+          "why": "Addresses, flags and device registers are written in hex and read as bits. Converting by hand, and masking out fields, is a daily kernel skill.",
+          "objectives": [
+            "Convert byte- and word-sized values between binary, hex and decimal without a calculator.",
+            "Extract and set bit fields with AND, OR and shifts."
+          ],
+          "checkpoint": "By hand: write 0x2F in binary and decimal, write 200 in hex, then compute (0x00403007 >> 12) & 0x3FF and explain each step.",
+          "prereq": []
+        },
+        {
+          "id": "p2l2",
+          "title": "Byte order: endianness",
+          "level": 1,
+          "minutes": 15,
+          "articles": ["Endianness"],
+          "further": ["Hexadecimal Notation"],
+          "why": "x86 stores multi-byte values backwards from how you write them. Disk formats and network packets often use the other order. Endianness bugs look like random corruption until you know to look.",
+          "objectives": [
+            "Predict the byte layout of a 32-bit value on a little-endian CPU.",
+            "Say when a value must be byte-swapped."
+          ],
+          "checkpoint": "Write 0xDEADBEEF as the four bytes a little-endian memory dump shows, then as the bytes a big-endian network packet carries.",
+          "prereq": ["p2l1"]
+        },
+        {
+          "id": "p2l3",
+          "title": "Real numbers in a computer",
+          "level": 2,
+          "minutes": 25,
+          "articles": ["Floating Point Number"],
+          "further": [],
+          "why": "Floating point has its own registers and its own state that a kernel must save on every task switch. Knowing the format explains why kernels often avoid floats entirely.",
+          "objectives": [
+            "Split an IEEE 754 single into sign, exponent and mantissa.",
+            "Explain why 0.1 cannot be stored exactly."
+          ],
+          "checkpoint": "Decode the 32-bit float 0x40490FDB by hand into sign, exponent and mantissa, and say roughly what value it is.",
+          "prereq": ["p2l1"]
+        },
+        {
+          "id": "p2l4",
+          "title": "Where a program's data lives",
+          "level": 1,
+          "minutes": 35,
+          "articles": ["Program Memory Allocation Types", "Stack"],
+          "further": ["Memory Allocation"],
+          "why": "Your kernel has to provide every one of these regions itself: read-only data, globals, the stack and the heap. Knowing what each is for comes before building them.",
+          "objectives": [
+            "Name the memory regions of a running program and what lives in each.",
+            "Explain how the stack grows and what a stack frame holds."
+          ],
+          "checkpoint": "For a small C program with a string literal, a global, a local array and a malloc call, say which region each lives in and in which direction the stack and heap grow.",
+          "prereq": ["p2l1"]
+        }
+      ]
+    },
+    {
+      "id": "p3",
+      "title": "C for systems programmers",
+      "summary": "The C you need next to hardware: the language's sharp edges, the preprocessor, volatile and memory-mapped registers, headers and the C library, undefined behaviour.",
+      "lessons": [
+        {
+          "id": "p3l1",
+          "title": "C, the language of kernels",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["C"],
+          "further": ["C Library", "Books"],
+          "why": "Almost every hobby kernel and every tutorial on the wiki is written in C. Pointers, pointer arithmetic and manual memory are the tools you will use on every page.",
+          "objectives": [
+            "Explain what a pointer holds and what dereferencing and pointer arithmetic do.",
+            "Say why C suits kernel work."
+          ],
+          "checkpoint": "Write a C function that takes a uint8_t* and a length and prints a hex dump of that memory, 16 bytes per line with the address on the left. Run it on a local array.",
+          "prereq": ["p2l1"]
+        },
+        {
+          "id": "p3l2",
+          "title": "The C preprocessor",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["C preprocessor"],
+          "further": [],
+          "why": "Kernels use macros for constants, register layouts and per-architecture code. Knowing that the preprocessor is plain text substitution, run before the compiler, saves hours of confusion.",
+          "objectives": [
+            "Trace what #include, #define and #ifdef produce.",
+            "Spot the classic macro pitfalls."
+          ],
+          "checkpoint": "Write a header with an include guard, a constant, a function-like macro and an #ifdef block. Run gcc -E on a file that uses it and explain the output.",
+          "prereq": ["p3l1"]
+        },
+        {
+          "id": "p3l3",
+          "title": "Talking to hardware from C: volatile and memory-mapped registers",
+          "level": 2,
+          "minutes": 30,
+          "articles": ["Volatile (keyword)", "Memory mapped registers in C/C++"],
+          "further": [],
+          "why": "The optimiser assumes memory only changes when your code writes it. Device registers break that rule. Without volatile your driver works at -O0 and silently fails at -O2.",
+          "objectives": [
+            "Explain what volatile tells the compiler and what it does not guarantee.",
+            "Declare a memory-mapped register correctly in C."
+          ],
+          "checkpoint": "Write a loop that polls a status register until a bit is set, once with volatile and once without. Compile both with gcc -O2 -S and point to the difference in the assembly.",
+          "prereq": ["p3l1"]
+        },
+        {
+          "id": "p3l4",
+          "title": "Headers, declarations and the C library",
+          "level": 1,
+          "minutes": 30,
+          "articles": ["Why function implementations shouldn't be put in header files", "C Library"],
+          "further": ["Creating a C Library"],
+          "why": "A kernel has no C library until you write one. Knowing what belongs in a header, and which libc parts are compiler-provided versus OS-provided, decides what your kernel can use on day one.",
+          "objectives": [
+            "Separate declarations from definitions across headers and source files.",
+            "Say which headers a freestanding compiler still provides."
+          ],
+          "checkpoint": "Split a small program into main.c, util.c and util.h with no definitions in the header. Then list which standard headers remain available with -ffreestanding.",
+          "prereq": ["p3l2"]
+        },
+        {
+          "id": "p3l5",
+          "title": "Undefined behaviour",
+          "level": 2,
+          "minutes": 20,
+          "articles": ["Undefined Behavior Sanitization"],
+          "further": ["Volatile (keyword)"],
+          "why": "Undefined behaviour lets the compiler assume things that are false in a kernel, then delete your code. A sanitiser finds it for you, if you know to switch it on.",
+          "objectives": [
+            "Name common sources of undefined behaviour in C.",
+            "Explain what UBSan reports and how a kernel hooks it."
+          ],
+          "checkpoint": "Write a program with a signed overflow and an out-of-bounds shift, build it with -fsanitize=undefined on your host and read the reports.",
+          "prereq": ["p3l1"]
+        }
+      ]
+    },
+    {
+      "id": "p4",
+      "title": "Assembly",
+      "summary": "Enough x86 assembly to read your compiler's output and write the parts C cannot: registers, syntax, assemblers and the boundary between C and assembly.",
+      "lessons": [
+        {
+          "id": "p4l1",
+          "title": "What assembly is",
+          "level": 1,
+          "minutes": 20,
+          "articles": ["Assembly", "Instruction Set Architecture"],
+          "further": ["Opcode syntax"],
+          "why": "Boot code, interrupt entry and context switches must be written in assembly, and reading disassembly is how you debug everything else.",
+          "objectives": [
+            "Explain the relationship between assembly, machine code and an ISA.",
+            "Say which parts of a kernel need assembly."
+          ],
+          "checkpoint": "Compile int add(int a, int b) { return a + b; } with gcc -O2 -S -m32 and explain every line of the output.",
+          "prereq": ["p2l1"]
+        },
+        {
+          "id": "p4l2",
+          "title": "The x86 registers",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["CPU Registers x86"],
+          "further": ["CPU Registers x86-64"],
+          "why": "General registers, segment registers, flags and control registers all appear in kernel code. CR0 and CR3 alone switch on protected mode and paging.",
+          "objectives": [
+            "Name the general, segment, flag and control registers and what each is for.",
+            "Explain how EAX, AX, AH and AL overlap."
+          ],
+          "checkpoint": "Without looking: what are EAX, AX, AH and AL after mov eax, 0x12345678? Which register holds the page directory address, and which bit of CR0 enables paging?",
+          "prereq": ["p4l1"]
+        },
+        {
+          "id": "p4l3",
+          "title": "Choosing an assembler and its syntax",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["Which assembler should I use?(x86)", "NASM", "GAS"],
+          "further": ["Opcode syntax"],
+          "why": "Wiki code comes in two syntaxes: Intel (NASM) and AT&T (GAS). Mixing them up reverses operands and silently breaks code.",
+          "objectives": [
+            "Read the same instruction in Intel and AT&T syntax.",
+            "Assemble a file with NASM and with GAS."
+          ],
+          "checkpoint": "Write mov eax, [ebx+4] in AT&T syntax, assemble one small file with both nasm and as, and compare the bytes with objdump -d.",
+          "prereq": ["p4l1"]
+        },
+        {
+          "id": "p4l4",
+          "title": "Learning x86 assembly",
+          "level": 2,
+          "minutes": 45,
+          "articles": ["Learning 80x86 Assembly", "Real mode assembly I"],
+          "further": ["Real mode assembly II"],
+          "why": "Your first boot code runs in 16-bit real mode. Writing a few small real-mode programs builds the instinct you need for lesson 1.2.3.",
+          "objectives": [
+            "Write a loop, a comparison and a function call in x86 assembly.",
+            "Print text from real mode using a BIOS call."
+          ],
+          "checkpoint": "Write a 16-bit routine that prints a null-terminated string with the BIOS teletype call, and step through it once in a debugger or emulator.",
+          "prereq": ["p4l2", "p4l3"]
+        },
+        {
+          "id": "p4l5",
+          "title": "Mixing C and assembly",
+          "level": 2,
+          "minutes": 40,
+          "articles": ["Inline Assembly", "Calling Conventions"],
+          "further": ["System V ABI", "Inline Assembly/Examples"],
+          "why": "Port I/O, reading control registers and halting the CPU need assembly inside C. Get the constraints or the calling convention wrong and the compiler quietly breaks your code.",
+          "objectives": [
+            "Write inline assembly with correct input, output and clobber constraints.",
+            "Call an assembly function from C under the cdecl convention."
+          ],
+          "checkpoint": "Write inline-assembly wrappers outb(port, value) and inb(port), and an assembly function that C calls as int add3(int, int, int). Check the generated code with objdump.",
+          "prereq": ["p4l2", "p3l1"]
+        }
+      ]
+    },
+    {
+      "id": "p5",
+      "title": "How code becomes a program",
+      "summary": "What the compiler, assembler and linker each produce, the ELF format, and how kernel, compiler and C library fit together.",
+      "lessons": [
+        {
+          "id": "p5l1",
+          "title": "Compilers",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["Compiler"],
+          "further": ["Why do I need a Cross Compiler?"],
+          "why": "You need to know what the compiler produces, and what it assumes about the target, before you can tell it to produce code for a machine with no OS.",
+          "objectives": [
+            "Name the stages from source file to object file.",
+            "Explain what a target triple says."
+          ],
+          "checkpoint": "Run gcc -save-temps on a small file and identify the .i, .s and .o outputs. Say which stage produced each.",
+          "prereq": ["p3l1"]
+        },
+        {
+          "id": "p5l2",
+          "title": "Linkers and object files",
+          "level": 2,
+          "minutes": 30,
+          "articles": ["Linkers"],
+          "further": ["Linker Scripts", "Dynamic Linker"],
+          "why": "Your kernel's memory layout is decided by the linker, through a linker script you write. Symbol resolution and relocation errors are among the first build failures you will meet.",
+          "objectives": [
+            "Explain symbol resolution and relocation.",
+            "Read a symbol table with nm."
+          ],
+          "checkpoint": "Build two object files where one calls a function defined in the other. Run nm on both and on the linked result, and explain U, T and the final addresses.",
+          "prereq": ["p5l1"]
+        },
+        {
+          "id": "p5l3",
+          "title": "Executable formats: ELF",
+          "level": 2,
+          "minutes": 35,
+          "articles": ["ELF"],
+          "further": ["ELF Tutorial"],
+          "why": "GRUB loads your kernel as an ELF file, and later your kernel loads user programs the same way. Sections, segments and the entry point are what both loaders read.",
+          "objectives": [
+            "Distinguish sections from program segments.",
+            "Find the entry point and loadable segments with readelf."
+          ],
+          "checkpoint": "Run readelf -h -l -S on any ELF binary and point out the entry point, each PT_LOAD segment's address and size, and which sections fall inside it.",
+          "prereq": ["p5l2"]
+        },
+        {
+          "id": "p5l4",
+          "title": "Kernel, compiler and C library together",
+          "level": 2,
+          "minutes": 25,
+          "articles": ["How kernel, compiler, and C library work together"],
+          "further": ["Why do I need a Cross Compiler?", "Libgcc"],
+          "why": "This is the map of who provides what: the compiler's own runtime, the C library and the system calls under it. Your kernel replaces the bottom of that stack.",
+          "objectives": [
+            "Say which layer provides printf, memcpy, system calls and libgcc helpers.",
+            "Explain what changes when there is no OS underneath."
+          ],
+          "checkpoint": "Draw the stack from your program down to the hardware: application, C library, system calls, kernel. Mark which parts your kernel must provide itself.",
+          "prereq": ["p5l1", "p3l4"]
+        }
+      ]
+    },
+    {
+      "id": "p6",
+      "title": "Your workbench",
+      "summary": "The tools every lesson assumes: a Unix-like shell, GCC and binutils, Make, Git, an emulator and a debugger.",
+      "lessons": [
+        {
+          "id": "p6l1",
+          "title": "A Unix-like environment, on any OS",
+          "level": 1,
+          "minutes": 30,
+          "articles": ["Windows Subsystem for Linux", "Windows Tools"],
+          "further": ["Cygwin", "Getting Started"],
+          "why": "The OSDev toolchain and tutorials assume a Unix-like shell. On Windows, WSL gives you one; on Linux and macOS you already have it.",
+          "objectives": [
+            "Get a working shell with gcc, make and git.",
+            "Move files between the host and the Unix environment."
+          ],
+          "checkpoint": "In your Unix-like shell, run gcc --version, make --version, git --version and qemu-system-i386 --version, and install whatever is missing.",
+          "prereq": []
+        },
+        {
+          "id": "p6l2",
+          "title": "GCC and binutils",
+          "level": 1,
+          "minutes": 25,
+          "articles": ["GCC", "Binutils"],
+          "further": ["GCC Cross-Compiler"],
+          "why": "GCC and binutils (as, ld, objdump, readelf, nm, objcopy) are the tools you will run thousands of times. Knowing their key flags makes every later lesson faster.",
+          "objectives": [
+            "Compile, assemble and link separately with gcc, as and ld.",
+            "Inspect binaries with objdump, readelf and nm."
+          ],
+          "checkpoint": "Build a two-file program in separate steps (gcc -c, then ld or gcc to link), then disassemble one function with objdump -d.",
+          "prereq": ["p6l1"]
+        },
+        {
+          "id": "p6l3",
+          "title": "Build automation with Make",
+          "level": 1,
+          "minutes": 35,
+          "articles": ["Makefile"],
+          "further": [],
+          "why": "A kernel quickly grows to dozens of files, assembly and C mixed. Make rebuilds only what changed and turns build, run and debug into one command each.",
+          "objectives": [
+            "Write rules with targets, prerequisites and recipes.",
+            "Use pattern rules and automatic variables."
+          ],
+          "checkpoint": "Write a Makefile for a three-file C project with a pattern rule for .o files, a clean target and a run target. Touch one file and confirm only it is rebuilt.",
+          "prereq": ["p6l2"]
+        },
+        {
+          "id": "p6l4",
+          "title": "Version control with Git",
+          "level": 1,
+          "minutes": 20,
+          "articles": ["Git"],
+          "further": ["Getting Started"],
+          "why": "You will break your kernel daily. Committing every working state means you can always get back to the last kernel that booted, and see exactly what changed.",
+          "objectives": [
+            "Commit, inspect history and go back to an earlier state.",
+            "Use a branch for an experiment."
+          ],
+          "checkpoint": "Put a project in Git, make three commits, break something on a branch, then use git diff and git log to find the change and return to the working version.",
+          "prereq": ["p6l1"]
+        },
+        {
+          "id": "p6l5",
+          "title": "Emulators: QEMU and Bochs",
+          "level": 1,
+          "minutes": 30,
+          "articles": ["Emulators", "QEMU", "Emulator Comparison"],
+          "further": ["Bochs", "QEMU Monitor"],
+          "why": "You will boot your kernel hundreds of times a day. An emulator does it in a second, cannot be bricked, and lets you inspect the machine when things go wrong.",
+          "objectives": [
+            "Boot an image in QEMU with serial output to the terminal.",
+            "Pick between QEMU and Bochs for a given job."
+          ],
+          "checkpoint": "Boot any small disk image or ISO in qemu-system-i386 with -serial stdio, open the QEMU monitor and run info registers.",
+          "prereq": ["p6l1"]
+        },
+        {
+          "id": "p6l6",
+          "title": "Debugging with GDB",
+          "level": 2,
+          "minutes": 35,
+          "articles": ["GDB", "Kernel Debugging"],
+          "further": ["QEMU and GDB in long mode", "Stack Trace"],
+          "why": "When the screen stays black, GDB attached to QEMU shows exactly where the CPU is and what the registers hold. It replaces guessing with looking.",
+          "objectives": [
+            "Set breakpoints, step and inspect registers and memory in GDB.",
+            "Attach GDB to QEMU's gdbstub."
+          ],
+          "checkpoint": "Debug a host C program in GDB: break in a function, step, print a variable, and examine memory with x/16xb. Then start QEMU with -s -S and connect with target remote :1234.",
+          "prereq": ["p6l5"]
+        }
+      ]
+    }
+  ]
+}

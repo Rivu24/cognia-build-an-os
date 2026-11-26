@@ -1,0 +1,68 @@
+/* Intro loader. The cinematic intro is always on the black canvas (glowing bits need black, and it is the brand
+   default); the reduced-motion version follows the theme. Monochrome only, square corners, hairlines. */
+
+.intro { position: fixed; inset: 0; z-index: 2147483000; }
+.intro-stage { position: absolute; inset: 0; overflow: hidden; background: #000; color: #ececea; contain: strict; }
+.intro-host, .intro-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.intro-canvas { opacity: 0; transition: opacity .9s ease; }
+.intro-stage[data-scene] .intro-canvas { opacity: 1; }
+
+/* wordmark under the mark */
+.intro-word { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; pointer-events: none; }
+.intro-wordmark { font-size: 46px; padding-left: .3em; white-space: nowrap; color: #ececea; }
+.intro-wordmark span { display: inline-block; opacity: 0; filter: blur(10px); transform: translateY(.28em); transition: opacity .8s ease, filter 1s ease, transform 1.1s cubic-bezier(.2, .7, .2, 1); }
+.intro-stage[data-word] .intro-wordmark span { opacity: 1; filter: blur(0); transform: none; }
+.intro-product { font-size: 19px; font-weight: 500; letter-spacing: .005em; color: #a3a3a3; opacity: 0; transform: translateY(6px); transition: opacity .7s ease .3s, transform .9s cubic-bezier(.2, .7, .2, 1) .3s; }
+.intro-stage[data-word] .intro-product { opacity: 1; transform: none; }
+.intro-stage[data-plunge] .intro-word,
+.intro-stage[data-exit] .intro-word { opacity: 0; transform: scale(1.14); filter: blur(6px); transition: opacity .3s ease-in, transform .5s ease-in, filter .4s ease-in; }
+
+/* boot log, lower left */
+.intro-log { position: absolute; left: clamp(16px, 3vw, 40px); bottom: clamp(26px, 5vh, 48px); font: 12px/1.85 var(--font-mono); white-space: pre; color: #8c8c8a; transition: opacity .35s ease; }
+.intro-line { display: none; }
+.intro-line[data-on] { display: block; }
+.intro-line .ts { color: #4d4d4d; }
+.intro-line .ok { margin-left: 1.4ch; color: #ececea; visibility: hidden; }
+.intro-line[data-ok] .ok { visibility: visible; }
+.intro-line[data-active] .tx { color: #ececea; }
+.intro-line .cur { display: none; width: .62em; height: 1.1em; margin-left: 3px; vertical-align: -.2em; background: #ececea; animation: intro-blink 1.05s steps(1, end) infinite; }
+.intro-line[data-active]:not([data-ok]) .cur { display: inline-block; }
+@keyframes intro-blink { 50% { opacity: 0; } }
+
+/* readiness, lower right */
+.intro-pct { position: absolute; right: clamp(16px, 3vw, 40px); bottom: clamp(26px, 5vh, 48px); display: grid; grid-template-columns: auto auto; justify-items: end; align-items: start; font-family: var(--font-mono); line-height: 1; color: #ececea; transition: opacity .35s ease; }
+.intro-pct .lbl { grid-column: 1 / -1; margin-bottom: 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6e6e6e; }
+.intro-pct .num { font-size: clamp(30px, 3.6vw, 46px); font-weight: 400; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.intro-pct .unit { margin: 3px 0 0 5px; font-size: 13px; color: #8c8c8a; }
+.intro-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, .1); transition: opacity .35s ease; }
+.intro-bar > div { height: 100%; background: #ececea; transform: scaleX(0); transform-origin: left; }
+
+/* skip, top right */
+.intro-skip { position: absolute; top: clamp(14px, 2.6vw, 30px); right: clamp(16px, 3vw, 40px); display: inline-flex; align-items: center; gap: 10px; padding: 10px 12px; font: 500 11.5px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: #ececea; background: transparent; border: 1px solid rgba(255, 255, 255, .28); cursor: pointer; transition: background-color .2s, color .2s, opacity .3s ease; }
+.intro-skip:hover { background: #ececea; color: #000; }
+.intro-skip kbd { font: inherit; color: #6e6e6e; padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, .2); }
+.intro-skip:hover kbd { color: #555; border-color: rgba(0, 0, 0, .25); }
+.intro-skip:focus-visible { outline: 1px solid #ececea; outline-offset: 3px; }
+
+.intro-stage[data-plunge] :is(.intro-log, .intro-pct, .intro-bar, .intro-skip),
+.intro-stage[data-exit] :is(.intro-log, .intro-pct, .intro-bar, .intro-skip) { opacity: 0; pointer-events: none; }
+
+/* the rim of the iris: a lit hairline where the site shows through */
+.intro-ring { position: absolute; left: 0; top: 0; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .92); box-shadow: 0 0 28px rgba(255, 255, 255, .32), inset 0 0 22px rgba(255, 255, 255, .22); pointer-events: none; opacity: 0; will-change: transform, width, height; }
+
+@media (max-width: 639px) {
+  .intro-word { gap: 11px; }
+  .intro-wordmark { font-size: 30px; }
+  .intro-product { font-size: 15px; }
+  .intro-log { font-size: 10.5px; }
+  /* phones: the counter moves to the top left, opposite the skip button, so long log lines never meet it */
+  .intro-pct { top: clamp(14px, 2.6vw, 30px); bottom: auto; right: auto; left: 16px; justify-items: start; }
+  .intro-pct .lbl { margin-bottom: 7px; font-size: 10px; }
+  .intro-pct .num { font-size: 26px; }
+}
+
+/* prefers-reduced-motion: lockup in and out, ~700 ms, follows the theme */
+.intro-calm { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; padding: 16px; background: var(--background); color: var(--foreground); animation: intro-calm-out 720ms linear both; }
+.intro-calm-lockup { animation: intro-calm-in 720ms linear both; }
+@keyframes intro-calm-out { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes intro-calm-in { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 1; } }

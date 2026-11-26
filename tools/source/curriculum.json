@@ -1,0 +1,3816 @@
+{
+ "name": "Build an OS: the Ground Up path",
+ "tracks": [
+  {
+   "id": "t1",
+   "title": "Orientation and Foundations",
+   "summary": "What the job involves, a boot sector you wrote yourself within the first few sittings, and the parts of the machine a C programmer has never had to look at.",
+   "goal": "Explain what a kernel does, boot 512 bytes of your own assembly in QEMU, and read registers, stack frames and hex dumps without guessing.",
+   "modules": [
+    {
+     "id": "t1m1",
+     "title": "Readiness check",
+     "summary": "Find out what building an OS involves and whether you are ready to start.",
+     "lessons": [
+      {
+       "id": "t1m1l1",
+       "title": "What building an OS actually involves",
+       "level": 1,
+       "minutes": 45,
+       "articles": [
+        "Introduction",
+        "Kernel",
+        "Creating an Operating System"
+       ],
+       "further": [
+        "History",
+        "Tutorials",
+        "Projects"
+       ],
+       "why": "Most people quit because the work turns out to be different from what they imagined. Seeing the real shape of the job first saves months. Creating an Operating System, the wiki's own roadmap, is the third reading: skim only its headings now; its Master rating covers the whole roadmap, and you will meet each phase again in order.",
+       "objectives": [
+        "After this lesson you can explain what a kernel does and what it does not do.",
+        "After this lesson you can describe the rough phases of a hobby OS: boot, kernel core, user space, drivers, self-hosting."
+       ],
+       "checkpoint": "Write five sentences in your own notes: what your OS will do in its first working version, and three things it will not do.",
+       "prereq": []
+      },
+      {
+       "id": "t1m1l2",
+       "title": "Prerequisite self-check",
+       "level": 1,
+       "minutes": 40,
+       "articles": [
+        "Required Knowledge",
+        "Basic Theory Of Computer Science"
+       ],
+       "further": [
+        "Books",
+        "Learning 80x86 Assembly",
+        "Resources",
+        "C",
+        "Technical Specifications"
+       ],
+       "why": "OS development is a bad place to learn programming. Gaps in C, assembly or the Unix command line show up later as bugs you cannot diagnose.",
+       "objectives": [
+        "After this lesson you can list the areas of required knowledge and rate yourself honestly on each.",
+        "After this lesson you can decide which gaps to close before you continue and which can wait until a lesson needs them."
+       ],
+       "checkpoint": "Score yourself 0-2 on every item in Required Knowledge. Assembly, Executable Formats and The Platform are taught in Tracks 1-2; mark them \"course covers\" unless you also score 0 on C or the Unix command line. Any other item at 0 gets a study plan before you continue; write it down.",
+       "prereq": [
+        "t1m1l1"
+       ]
+      },
+      {
+       "id": "t1m1l3",
+       "title": "How OS projects die, and how to keep yours alive",
+       "level": 1,
+       "minutes": 50,
+       "articles": [
+        "Beginner Mistakes",
+        "Getting Started",
+        "What Order Should I Make Things In?"
+       ],
+       "further": [
+        "Cowboy Coder",
+        "Dae Dreamer",
+        "Duct von Tape",
+        "Sir Dunning-Kruger",
+        "Rules of OSDev",
+        "Real Mode OS Warning"
+       ],
+       "why": "Scope creep and copying tutorials without understanding are the two most common ways hobby kernels stall. Naming them early makes them easier to spot.",
+       "objectives": [
+        "After this lesson you can name the common scope and design mistakes beginners make.",
+        "After this lesson you can set a first milestone small enough to finish in weeks, not years."
+       ],
+       "checkpoint": "Write your milestone list: boot and print, survive exceptions, take timer interrupts, allocate memory, run a user program. Cross out anything you added beyond this for now.",
+       "prereq": [
+        "t1m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t1m2",
+     "title": "Your first 512 bytes",
+     "summary": "Set up the host, then boot a program you wrote, before learning anything else about kernels.",
+     "lessons": [
+      {
+       "id": "t1m2l1",
+       "title": "Set up your host and QEMU",
+       "level": 1,
+       "minutes": 45,
+       "articles": [
+        "Testing",
+        "QEMU"
+       ],
+       "further": [
+        "Windows Subsystem for Linux",
+        "Windows Tools",
+        "Cygwin Issues",
+        "Emulator Comparison",
+        "Bochs",
+        "Code Management"
+       ],
+       "why": "Most OS tools are Unix-first, and you will boot an emulator hundreds of times. A clean Linux or WSL setup and a one-line QEMU command remove a whole class of problems before they start. For install steps, re-read Getting Started, section Choosing your development environment; on Windows, also read Windows Subsystem for Linux.",
+       "objectives": [
+        "After this lesson you can install a Unix-like build environment (Linux, WSL or macOS) with gcc, make, nasm, git, gdb, xorriso, grub-pc-bin and mtools.",
+        "After this lesson you can launch QEMU from the command line with a chosen amount of memory and see what the firmware does with no disk.",
+        "After this lesson you can explain why you test in an emulator before real hardware."
+       ],
+       "checkpoint": "gcc --version, make --version, nasm -v, gdb --version and qemu-system-i386 --version all answer. Start qemu-system-i386 with no disk and see the firmware report that no bootable device was found (if QEMU cannot open a window under WSL, add -display curses). Save the command as run.sh in a new git repository.",
+       "prereq": [
+        "t1m1l3"
+       ]
+      },
+      {
+       "id": "t1m2l2",
+       "title": "What happens when you press power",
+       "level": 1,
+       "minutes": 40,
+       "articles": [
+        "System Initialization (x86)",
+        "Boot Sequence",
+        "BIOS"
+       ],
+       "further": [
+        "Real Mode",
+        "Memory Map (x86)",
+        "MBR (x86)"
+       ],
+       "why": "Your code is not the first thing that runs. Knowing what the firmware has already done, and what state it leaves the CPU in, explains every odd rule you are about to meet.",
+       "objectives": [
+        "After this lesson you can trace the path from CPU reset to code running at 0x7C00.",
+        "After this lesson you can say what the BIOS provides and what it does not.",
+        "After this lesson you can explain the 0xAA55 boot signature."
+       ],
+       "checkpoint": "Draw the boot timeline from reset vector to your boot sector, and mark where the CPU is still in 16-bit real mode.",
+       "prereq": [
+        "t1m2l1"
+       ]
+      },
+      {
+       "id": "t1m2l3",
+       "title": "A boot sector that boots",
+       "level": 1,
+       "minutes": 60,
+       "articles": [
+        "Babystep1",
+        "Babystep2"
+       ],
+       "further": [
+        "Real mode assembly I",
+        "Real mode assembly II",
+        "Hexadecimal Notation",
+        "Babystep3",
+        "Babystep4",
+        "Disk Images",
+        "Assembly",
+        "CPU Registers x86",
+        "Learning 80x86 Assembly"
+       ],
+       "why": "Booting 512 bytes you wrote yourself proves the whole chain works: assembler, image, emulator, firmware. It is the smallest possible OS and the first thing that runs. If you have never read assembly, first skim the Intel Syntax section of Assembly and the 16-bit register names in CPU Registers x86. In Babystep2, lodsb loads the byte at DS:SI into AL and moves SI to the next byte (cld makes it count up); or al,al sets the zero flag when AL is 0, so jz leaves the loop at the end of the string.",
+       "objectives": [
+        "After this lesson you can read and write basic 16-bit NASM: mov, int, jmp and a loop.",
+        "After this lesson you can build a 512-byte boot sector with a valid signature and print a string with BIOS teletype output.",
+        "After this lesson you can boot a raw image in QEMU."
+       ],
+       "checkpoint": "qemu-system-i386 -drive format=raw,file=boot.bin boots, prints your name, then halts without a reboot loop. Break it on purpose: write down what you expect QEMU to show if the last two bytes are not 0x55 0xAA, then remove the signature, rebuild and compare.",
+       "prereq": [
+        "t1m2l2"
+       ]
+      },
+      {
+       "id": "t1m2l4",
+       "title": "What a bootloader must do (and why GRUB does it for you)",
+       "level": 1,
+       "minutes": 75,
+       "articles": [
+        "Bootloader",
+        "Disk access using the BIOS (INT 13h)"
+       ],
+       "further": [
+        "Bootloader FAQ",
+        "Rolling Your Own Bootloader",
+        "GRUB",
+        "Limine",
+        "Ralf Brown's Interrupt List",
+        "Babystep5"
+       ],
+       "why": "A full bootloader must load files, query memory, switch CPU modes and hand over information. Seeing that list now explains why the core path uses an existing bootloader and returns to booting later.",
+       "objectives": [
+        "After this lesson you can list the jobs a bootloader performs before a kernel runs.",
+        "After this lesson you can read extra sectors from disk with INT 13h.",
+        "After this lesson you can weigh writing your own loader against using GRUB or Limine."
+       ],
+       "checkpoint": "Extend your boot sector to load sector 2 with INT 13h and jump to it; the code in sector 2 prints a second message in QEMU. Put sector 2 in the same file after the signature (pad it with times 1024-($-$$) db 0) and load it to 0x7E00; keep the DL value the BIOS gave you; if the carry flag is set after the call, print an error.",
+       "prereq": [
+        "t1m2l3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t1m3",
+     "title": "The machine from a C programmer's view",
+     "summary": "Numbers, registers and the stack: three things every later lesson assumes you can read.",
+     "lessons": [
+      {
+       "id": "t1m3l1",
+       "title": "Numbers as the hardware sees them",
+       "level": 1,
+       "minutes": 30,
+       "articles": [
+        "Binary Notation",
+        "Hexadecimal Notation",
+        "Endianness"
+       ],
+       "further": [
+        "Basic Theory Of Computer Science",
+        "ASCII",
+        "Null Character"
+       ],
+       "why": "Addresses, page table entries and device registers are all bit fields. You will read hex dumps daily, and endianness bugs look like corruption until you know to look for them.",
+       "objectives": [
+        "After this lesson you can convert between binary, hex and decimal without a calculator for byte-sized values.",
+        "After this lesson you can predict how a 32-bit value is laid out in memory on a little-endian CPU."
+       ],
+       "checkpoint": "Write 0xDEADBEEF as the four bytes you would see in a little-endian memory dump, and extract bits 12-31 of 0x00403007 by hand.",
+       "prereq": [
+        "t1m2l3"
+       ]
+      },
+      {
+       "id": "t1m3l2",
+       "title": "Registers and instructions",
+       "level": 1,
+       "minutes": 50,
+       "articles": [
+        "CPU Registers x86",
+        "Assembly",
+        "Opcode syntax"
+       ],
+       "further": [
+        "CPU Registers x86-64",
+        "Learning 80x86 Assembly",
+        "Which assembler should I use?(x86)",
+        "NASM",
+        "X86-64 Instruction Encoding"
+       ],
+       "why": "The CPU's state is its registers. Every mode switch, interrupt and context switch you write later is a precise edit of this state, so you need to know what each register is for.",
+       "objectives": [
+        "After this lesson you can name the general-purpose, segment, control and flags registers on x86.",
+        "After this lesson you can read Intel and AT&T syntax and translate one into the other."
+       ],
+       "checkpoint": "Compile a small C function with gcc -S -O1 -fno-asynchronous-unwind-tables -masm=intel f.c on your host, then annotate every instruction with what it does to the registers. Lines starting with . are assembler directives, not instructions; look up 64-bit names in the RAX/EAX table of CPU Registers x86.",
+       "prereq": [
+        "t1m3l1"
+       ]
+      },
+      {
+       "id": "t1m3l3",
+       "title": "The stack and calling conventions",
+       "level": 1,
+       "minutes": 90,
+       "articles": [
+        "Stack",
+        "Calling Conventions",
+        "System V ABI"
+       ],
+       "further": [
+        "C++ to ASM linkage in GCC",
+        "CPU Registers x86-64",
+        "Tail Recursion and Tail Call Optimization",
+        "GDB"
+       ],
+       "why": "C cannot run until a stack exists, and assembly can only call C (and back) if both sides agree on the convention. This is the contract your boot code must honour.",
+       "objectives": [
+        "After this lesson you can draw a stack frame for a cdecl call, including return address and saved registers.",
+        "After this lesson you can say which registers a callee must preserve under System V on i386 and x86-64.",
+        "After this lesson you can explain the stack alignment rule and why breaking it crashes SSE code."
+       ],
+       "checkpoint": "Write an assembly function that calls a C function with two arguments and returns its result, link them on your host and run it. Step through the call in GDB and check every argument, the return address and the saved registers against the ABI. Build 32-bit so the frame matches the cdecl diagram: sudo apt install gcc-multilib gdb; nasm -f elf32 f.asm; gcc -m32 -no-pie -g main.c f.o. In GDB use break, stepi, info registers and x/4wx $esp.",
+       "prereq": [
+        "t1m3l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t2",
+   "title": "Workbench: Cross-Compiler, Linker and Decisions",
+   "summary": "Build the tools a kernel needs, learn what the compiler and linker assume, and confirm the choices that are expensive to change later.",
+   "goal": "Build freestanding objects with your own i686-elf cross-compiler, place code at a chosen address with a linker script, and keep a DECISIONS.md that states your language, architecture and boot route with reasons.",
+   "modules": [
+    {
+     "id": "t2m1",
+     "title": "A compiler for a machine with no OS",
+     "summary": "Why the host compiler is wrong, building the right one, and what freestanding C leaves you.",
+     "lessons": [
+      {
+       "id": "t2m1l1",
+       "title": "Why you need a cross-compiler",
+       "level": 1,
+       "minutes": 40,
+       "articles": [
+        "Why do I need a Cross Compiler?",
+        "Target Triplet",
+        "How kernel, compiler, and C library work together"
+       ],
+       "further": [
+        "Compiler",
+        "GCC"
+       ],
+       "why": "Using your system compiler for a kernel produces bugs that look like kernel bugs but are really wrong assumptions about the target.",
+       "objectives": [
+        "After this lesson you can explain what a target triplet encodes and read one such as i686-elf.",
+        "After this lesson you can name three things that go wrong when a host compiler builds a kernel.",
+        "After this lesson you can say which jobs belong to the kernel, the compiler and the C library."
+       ],
+       "checkpoint": "Write down the target triplet of your host compiler (gcc -dumpmachine) and the one you will build for, and explain each part.",
+       "prereq": [
+        "t1m3l3",
+        "t1m2l1"
+       ]
+      },
+      {
+       "id": "t2m1l2",
+       "title": "Build your cross-compiler",
+       "level": 1,
+       "minutes": 150,
+       "articles": [
+        "GCC Cross-Compiler"
+       ],
+       "further": [
+        "Building GCC",
+        "Preparing GCC Build",
+        "Cross-Compiler Successful Builds",
+        "LLVM Cross-Compiler",
+        "\"zig cc\" Cross-Compiler"
+       ],
+       "why": "This is the first real hurdle. Once it works you have a tool you will use for the rest of the project. The compile itself can take 20-60 minutes; on Windows, do this inside WSL. Read GCC Cross-Compiler, section Preparing for the build, first. If your host's packages differ, check Preparing GCC Build and Cross-Compiler Successful Builds.",
+       "objectives": [
+        "After this lesson you can build binutils and GCC for an -elf target from source.",
+        "After this lesson you can put the cross tools on your PATH and confirm they target the right machine."
+       ],
+       "checkpoint": "Run i686-elf-gcc --version (or x86_64-elf-gcc). Compile an empty C file with -ffreestanding -c and check the object with i686-elf-objdump -h.",
+       "prereq": [
+        "t2m1l1"
+       ]
+      },
+      {
+       "id": "t2m1l3",
+       "title": "C without an operating system: freestanding C, volatile and libgcc",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "Implications of writing a freestanding C project",
+        "Volatile (keyword)",
+        "Libgcc"
+       ],
+       "further": [
+        "C Library",
+        "Libgcc without red zone",
+        "Memory mapped registers in C/C++",
+        "Why function implementations shouldn't be put in header files",
+        "Inline Functions in C",
+        "C preprocessor"
+       ],
+       "why": "Inside a kernel there is no printf, no malloc and no main called for you. Knowing exactly what freestanding C gives you prevents a whole class of link errors and miscompiled hardware access.",
+       "objectives": [
+        "After this lesson you can list the headers available in a freestanding environment.",
+        "After this lesson you can explain why device register accesses need volatile.",
+        "After this lesson you can explain why the kernel must link against libgcc."
+       ],
+       "checkpoint": "Write freestanding memcpy, memset, memmove, memcmp and strlen with no libc headers and test them in a hosted program; they become your libk. Then compile a function that divides two uint64_t values with i686-elf-gcc, link it once without -lgcc and once with, and explain the first error.",
+       "prereq": [
+        "t2m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t2m2",
+     "title": "Where the code ends up",
+     "summary": "Object files, symbols and the linker script that decides your kernel's address.",
+     "lessons": [
+      {
+       "id": "t2m2l1",
+       "title": "Linkers, object files and linker scripts",
+       "level": 2,
+       "minutes": 55,
+       "articles": [
+        "Object Files",
+        "Linkers",
+        "Linker Scripts"
+       ],
+       "further": [
+        "Symbol Table",
+        "ELF",
+        "LD",
+        "Using Linker Script Values",
+        "Executable Formats"
+       ],
+       "why": "The linker script decides where your kernel lives in memory. Many early boot failures are linker-script mistakes, not code mistakes.",
+       "objectives": [
+        "After this lesson you can explain the difference between an object file, a static library and an executable.",
+        "After this lesson you can read a linker script and say where .text, .rodata, .data and .bss end up.",
+        "After this lesson you can export a symbol from a linker script and use it from C."
+       ],
+       "checkpoint": "Write a linker script that places code at 1 MiB, link a test object, and confirm the addresses with objdump -h and nm. Point out one undefined symbol in an unlinked object.",
+       "prereq": [
+        "t2m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t2m3",
+     "title": "Decision gate",
+     "summary": "Confirm the defaults before the first kernel, with reasons you will revisit later.",
+     "lessons": [
+      {
+       "id": "t2m3l1",
+       "title": "Decision gate: confirm language, architecture and boot route",
+       "level": 1,
+       "minutes": 40,
+       "articles": [
+        "Languages",
+        "X86-64"
+       ],
+       "further": [
+        "IA32 Architecture Family",
+        "C++",
+        "Rust",
+        "ARM Overview",
+        "Limine",
+        "I use a Custom Filesystem - What Bootloader Solution is right for me?"
+       ],
+       "why": "These choices decide how much of the wiki you can follow word for word. The core path uses C, 32-bit x86 (i686), GRUB with Multiboot and BIOS in QEMU, because the wiki's core tutorials (GDT Tutorial, Setting Up Paging, Higher Half x86 Bare Bones, Getting to Ring 3, ELF Tutorial) are written for exactly that setup.",
+       "objectives": [
+        "After this lesson you can list what a language must provide to run with no runtime: no heap, no exceptions, no hidden library calls.",
+        "After this lesson you can name what long mode requires that 32-bit protected mode does not (paging on, 64-bit registers, a different boot handoff), and why this course ports to 64-bit as a planned step instead of switching midway; protected mode itself is covered in Track 3 (What mode is the CPU in?).",
+        "After this lesson you can state the cost, in lessons you must translate yourself, of leaving the default route."
+       ],
+       "checkpoint": "Create DECISIONS.md with four entries: language; architecture and bit width; firmware; bootloader and boot protocol. Give each a one-line reason. If you leave the default, list the core lessons you will have to translate. You will revisit these entries in the Design Revisited track.",
+       "prereq": [
+        "t2m1l3",
+        "t2m2l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t3",
+   "title": "First Boot: A Kernel That Prints",
+   "summary": "Hand control from GRUB to your own C code, talk to hardware ports, and grow the result into a project with a real build.",
+   "goal": "Boot a Multiboot kernel built with make from a clean tree, print to the screen through your own terminal code, and say what mode the CPU is in and why.",
+   "modules": [
+    {
+     "id": "t3m1",
+     "title": "Hello, kernel",
+     "summary": "The bootloader contract, the first kernel, and the first direct conversation with hardware.",
+     "lessons": [
+      {
+       "id": "t3m1l1",
+       "title": "Multiboot: the contract with the bootloader",
+       "level": 1,
+       "minutes": 30,
+       "articles": [
+        "Multiboot",
+        "GRUB"
+       ],
+       "further": [
+        "Bare Bones",
+        "GRUB Legacy",
+        "Limine",
+        "BOOTBOOT",
+        "Bootable CD"
+       ],
+       "why": "GRUB will load your kernel only if it finds a header it recognises, and it hands over a specific CPU state. That contract is what lets you start in C instead of 16-bit assembly. The course uses Multiboot 1: magic 0x1BADB002, flags and checksum, as in Bare Bones's boot.s. The Header Format section of the Multiboot article describes Multiboot 2, not the header you will write. In GRUB, read History, Features and Multiboot. The floppy, USB, HDD and UEFI install sections are for later; Bare Bones builds your ISO with grub-mkrescue.",
+       "objectives": [
+        "After this lesson you can describe the Multiboot 1 header fields: magic, flags and checksum.",
+        "After this lesson you can list the machine state GRUB guarantees at entry.",
+        "After this lesson you can name what information GRUB passes to the kernel."
+       ],
+       "checkpoint": "From the Machine state section of the Multiboot specification (linked from GRUB, section Multiboot), list the register values and CPU mode your entry point can rely on, and which ones it cannot (stack, GDT, interrupts).",
+       "prereq": [
+        "t1m2l4",
+        "t2m3l1"
+       ]
+      },
+      {
+       "id": "t3m1l2",
+       "title": "Your first kernel: Bare Bones",
+       "level": 1,
+       "minutes": 120,
+       "articles": [
+        "Bare Bones"
+       ],
+       "further": [
+        "Bare Bones with NASM",
+        "Disk Images",
+        "Bootable Disk",
+        "Printing to the screen without a db",
+        "Grub Error 13"
+       ],
+       "why": "This is the moment the project becomes real. Every later lesson builds on this kernel.",
+       "objectives": [
+        "After this lesson you can write a Multiboot header, a stack and an entry point in assembly.",
+        "After this lesson you can link a kernel with a linker script and boot it in QEMU through GRUB or -kernel.",
+        "After this lesson you can write text to the VGA text buffer from C."
+       ],
+       "checkpoint": "Your kernel prints 'Hello, kernel World!' in QEMU, booted both with -kernel and from a GRUB ISO. Break it on purpose: predict what GRUB will say if the Multiboot magic is missing, remove it, rebuild, and compare the real error with your prediction.",
+       "prereq": [
+        "t3m1l1",
+        "t2m1l2",
+        "t2m2l1"
+       ]
+      },
+      {
+       "id": "t3m1l3",
+       "title": "Talking to hardware: I/O ports and inline assembly",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "I/O Ports",
+        "Inline Assembly",
+        "Inline Assembly/Examples"
+       ],
+       "further": [
+        "Port IO",
+        "Volatile (keyword)",
+        "CMOS"
+       ],
+       "why": "The cursor, the serial port, the PIC, the timer and the keyboard are all programmed with in and out instructions. You need correct inb/outb helpers before any of them, and inline assembly is how C reaches those instructions.",
+       "objectives": [
+        "After this lesson you can explain the difference between port I/O and memory-mapped I/O on x86.",
+        "After this lesson you can write inb, outb and io_wait with GCC inline assembly, with correct constraints and clobbers.",
+        "After this lesson you can check the generated code with objdump instead of trusting the inline assembly."
+       ],
+       "checkpoint": "Put inb/outb/io_wait in a header. Read the CMOS seconds register (write 0x00 to port 0x70, read port 0x71) twice, about a second apart, and print both values in hex with a small print_hex8 helper (the RTC usually returns BCD, so 0x37 means 37 seconds; see CMOS). Disassemble the helpers with i686-elf-objdump -d and find the in and out instructions.",
+       "prereq": [
+        "t3m1l2"
+       ]
+      },
+      {
+       "id": "t3m1l4",
+       "title": "Text output you control",
+       "level": 1,
+       "minutes": 35,
+       "articles": [
+        "Printing To Screen",
+        "Text Mode Cursor"
+       ],
+       "further": [
+        "Text UI",
+        "VGA Fonts",
+        "Terminals"
+       ],
+       "why": "Screen output is your first debugging tool. Making it reliable now pays off every time something breaks.",
+       "objectives": [
+        "After this lesson you can print strings, decimal and hex numbers to the text screen.",
+        "After this lesson you can move the hardware cursor and handle newlines and scrolling."
+       ],
+       "checkpoint": "Print a table of the first 16 values of a lookup array in hex and decimal, with the cursor ending on the next free line.",
+       "prereq": [
+        "t3m1l3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t3m2",
+     "title": "A project that can grow",
+     "summary": "A source tree, a one-command build, and a clear picture of the CPU state you start in.",
+     "lessons": [
+      {
+       "id": "t3m2l1",
+       "title": "Grow the skeleton into a real project",
+       "level": 1,
+       "minutes": 120,
+       "articles": [
+        "Meaty Skeleton"
+       ],
+       "further": [
+        "Calling Global Constructors",
+        "Libgcc",
+        "Code Management"
+       ],
+       "why": "Bare Bones is one file. A kernel you can keep extending needs a directory layout, a small libc, and a sysroot.",
+       "objectives": [
+        "After this lesson you can organise a kernel and a minimal libk into separate directories with a sysroot.",
+        "After this lesson you can run global constructors through crti/crtbegin/crtend in the right order."
+       ],
+       "checkpoint": "Your kernel builds from the Meaty Skeleton layout, prints through printf-style terminal code, and scrolls when the screen fills.",
+       "prereq": [
+        "t3m1l4"
+       ]
+      },
+      {
+       "id": "t3m2l2",
+       "title": "Automate the build: Make and bootable images",
+       "level": 1,
+       "minutes": 50,
+       "articles": [
+        "Makefile",
+        "Disk Images"
+       ],
+       "further": [
+        "Bootable Disk",
+        "Bootable El-Torito CD with GRUB Legacy",
+        "Mkisofs",
+        "Loopback Device",
+        "CMake Build System",
+        "Automated Build Using CircleCI"
+       ],
+       "why": "A build that needs remembered steps breaks the day you forget one. Now that you have a kernel worth building, one command should rebuild it, make the boot image and start QEMU. Meaty Skeleton's build.sh, iso.sh and qemu.sh already chain these steps. Add a top-level Makefile whose run, iso, clean and test targets call them (or replace them), and add -serial stdio -no-reboot to the QEMU line.",
+       "objectives": [
+        "After this lesson you can write a Makefile with automatic header dependency tracking and run, iso and clean targets.",
+        "After this lesson you can build a bootable GRUB ISO or disk image from a script with no manual steps.",
+        "After this lesson you can explain the difference between a raw disk image, a floppy image and an ISO."
+       ],
+       "checkpoint": "make clean && make run builds the kernel, builds the ISO with grub-mkrescue and boots it with -serial stdio -no-reboot from a fresh checkout. Commit everything and push to a remote with a README that says how to build.",
+       "prereq": [
+        "t3m2l1"
+       ]
+      },
+      {
+       "id": "t3m2l3",
+       "title": "What mode is the CPU in? Real and protected mode",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "Real Mode",
+        "Protected Mode",
+        "Segmentation"
+       ],
+       "further": [
+        "A20 Line",
+        "Unreal Mode",
+        "Virtual 8086 Mode",
+        "Babystep7",
+        "Segment Selector",
+        "Babystep6"
+       ],
+       "why": "GRUB switched the CPU to 32-bit protected mode before your first line ran. To change anything about that state safely you need to know what segments, privilege levels and control registers mean, and what you can no longer do.",
+       "objectives": [
+        "After this lesson you can explain why BIOS calls are unavailable once the CPU is in protected mode.",
+        "After this lesson you can describe how a segment selector picks a descriptor, and what GRUB's flat segments mean.",
+        "After this lesson you can read CR0 and identify the PE and PG bits."
+       ],
+       "checkpoint": "Predict, then observe: write down the values you expect for CR0 bit 0, CR0 bit 31, CS and DS at kernel_main. Check them with info registers in the QEMU monitor, then print CR0 from C with inline assembly. Explain any difference from your prediction.",
+       "prereq": [
+        "t3m1l3"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t4",
+   "title": "Crash Reporter: Debugging Before Features",
+   "summary": "Serial logs, a kernel printf and GDB, then the GDT and IDT taught as crash infrastructure, triple-fault diagnosis, stack traces and an automated test harness.",
+   "goal": "Turn any crash into a readable report with vector, error code, registers and a backtrace, find the cause of a silent reset from the QEMU log, and run make test to catch regressions.",
+   "modules": [
+    {
+     "id": "t4m1",
+     "title": "See inside",
+     "summary": "Output that survives a crash, a printf, and a debugger.",
+     "lessons": [
+      {
+       "id": "t4m1l1",
+       "title": "Serial port logging",
+       "level": 1,
+       "minutes": 45,
+       "articles": [
+        "Serial Ports"
+       ],
+       "further": [
+        "UART",
+        "Serial Port",
+        "Kernel Debugging"
+       ],
+       "why": "Screen text disappears when the kernel crashes or the screen scrolls. Serial output goes to a file you can read after the crash.",
+       "objectives": [
+        "After this lesson you can initialise COM1 and write bytes to it.",
+        "After this lesson you can capture serial output to your terminal or a log file with QEMU."
+       ],
+       "checkpoint": "All kernel messages also go to serial, and make run shows them in the terminal. Break it on purpose: set the wrong divisor and observe what QEMU shows (and what real hardware would).",
+       "prereq": [
+        "t3m1l3",
+        "t3m2l1"
+       ]
+      },
+      {
+       "id": "t4m1l2",
+       "title": "A printf for the kernel",
+       "level": 1,
+       "minutes": 45,
+       "articles": [
+        "Formatted Printing",
+        "Kernel Stdio Theory"
+       ],
+       "further": [
+        "C Library",
+        "Null Character"
+       ],
+       "why": "Printing values is the debugging method you will use most. A small kprintf with %x, %d, %s and %p covers most needs.",
+       "objectives": [
+        "After this lesson you can implement a variadic kprintf over a putchar function.",
+        "After this lesson you can send the same output to the screen and to serial."
+       ],
+       "checkpoint": "kprintf(\"%s %d %x %p\", ...) prints correctly for negative numbers, zero and 0xFFFFFFFF on both outputs.",
+       "prereq": [
+        "t4m1l1"
+       ]
+      },
+      {
+       "id": "t4m1l3",
+       "title": "Attach GDB to your kernel",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Kernel Debugging",
+        "GDB",
+        "QEMU Monitor"
+       ],
+       "further": [
+        "QEMU and GDB in long mode",
+        "DWARF",
+        "Debugging UEFI applications with GDB"
+       ],
+       "why": "A debugger answers 'where did it stop and why' in seconds. Setting it up now, while the kernel is small, is much easier than during a crisis.",
+       "objectives": [
+        "After this lesson you can start QEMU paused with -s -S and connect GDB with symbols loaded.",
+        "After this lesson you can set breakpoints in kernel_main, step instructions and inspect memory.",
+        "After this lesson you can use the QEMU monitor to dump registers and memory."
+       ],
+       "checkpoint": "Build the debug kernel with -O0 -g -fno-omit-frame-pointer (Meaty Skeleton's config.sh sets CFLAGS='-O2 -g', which removes the prologue; change it there). Add a make debug target that starts QEMU with -s -S and connects GDB with your kernel's symbols. Predict ESP at the first instruction of kernel_main (stack_top minus the 4-byte return address), set `break *kernel_main` and compare. Then `break kernel_main`, which stops after the prologue, and explain the extra difference from push ebp and sub esp. Step into your terminal code and print a variable. Start DEBUGGING.md with every command you used.",
+       "prereq": [
+        "t4m1l2",
+        "t3m2l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t4m2",
+     "title": "Catch the crash",
+     "summary": "The CPU tables every fault report depends on, and what to do when the machine resets anyway.",
+     "lessons": [
+      {
+       "id": "t4m2l1",
+       "title": "The GDT: the table you must get right",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Global Descriptor Table",
+        "GDT Tutorial"
+       ],
+       "further": [
+        "Segmentation",
+        "Segment Selector",
+        "Descriptors",
+        "Descriptor Cache",
+        "Segment Limits"
+       ],
+       "why": "The CPU needs a valid GDT before you can install interrupt handlers. A wrong entry causes an instant reset with no message.",
+       "objectives": [
+        "After this lesson you can encode null, code and data descriptors and load them with lgdt.",
+        "After this lesson you can reload segment registers with a far jump."
+       ],
+       "checkpoint": "Load your own GDT with null, kernel code and kernel data entries. Predict the CS and DS selector values, then confirm them with info registers. Break it on purpose: set an invalid access byte, predict the symptom, rebuild, and find the cause with -d int,cpu_reset -no-reboot.",
+       "prereq": [
+        "t4m1l3",
+        "t3m2l3"
+       ]
+      },
+      {
+       "id": "t4m2l2",
+       "title": "How interrupts work",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Interrupts",
+        "Interrupts Tutorial"
+       ],
+       "further": [
+        "Interrupt Vector Table",
+        "Non Maskable Interrupt",
+        "Calling Conventions"
+       ],
+       "why": "Exceptions, hardware IRQs and system calls all arrive through one mechanism. Understanding it once saves you from three separate confusions.",
+       "objectives": [
+        "After this lesson you can distinguish exceptions, hardware IRQs and software interrupts.",
+        "After this lesson you can describe what the CPU pushes on the stack when an interrupt fires.",
+        "After this lesson you can explain why handlers end in iret."
+       ],
+       "checkpoint": "List what the CPU pushes for an interrupt with an error code and one without, and which vectors 0-31 push error codes.",
+       "prereq": [
+        "t4m2l1"
+       ]
+      },
+      {
+       "id": "t4m2l3",
+       "title": "Build the IDT and ISR stubs",
+       "level": 2,
+       "minutes": 75,
+       "articles": [
+        "Interrupt Descriptor Table",
+        "Interrupt Service Routines"
+       ],
+       "further": [
+        "Inline Assembly/Examples",
+        "C++ to ASM linkage in GCC",
+        "Interrupt Vector Table"
+       ],
+       "why": "Without an IDT, the first fault triple-faults and QEMU reboots with no clue why. A correct IDT turns that into a message.",
+       "objectives": [
+        "After this lesson you can fill 256 IDT gate descriptors and load them with lidt.",
+        "After this lesson you can write assembly stubs that save registers and call a C handler.",
+        "After this lesson you can pass a register frame to C and return safely.",
+        "After this lesson you can tell which exceptions push an error code and make every stub leave the same frame layout."
+       ],
+       "checkpoint": "Fill the IDT for vectors 0-31 plus one spare vector, load it with lidt and check the IDTR base and limit with info registers. Execute int $0x30 from kernel_main: your C handler prints the vector number and execution continues on the next line.",
+       "prereq": [
+        "t4m2l2"
+       ]
+      },
+      {
+       "id": "t4m2l4",
+       "title": "Exception handlers that print a register dump",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Exceptions"
+       ],
+       "further": [
+        "I Can't Get Interrupts Working",
+        "Non Maskable Interrupt",
+        "Bran's Kernel Development Tutorial Known Bugs"
+       ],
+       "why": "Without exception handlers, every bug is a silent reboot. With them, every bug is a message with the faulting address.",
+       "objectives": [
+        "After this lesson you can name the common x86 exceptions and when each occurs.",
+        "After this lesson you can print a register dump with vector, error code, EIP, CS, EFLAGS and the general registers through kprintf.",
+        "After this lesson you can halt cleanly after a fatal exception instead of returning into the faulting code."
+       ],
+       "checkpoint": "Trigger a divide by zero and an invalid opcode (ud2) on purpose. Each must print the exception name, error code and EIP over serial, then halt. Break it on purpose: remove the dummy error-code push from the divide-by-zero stub, predict what the register dump will show, and check.",
+       "prereq": [
+        "t4m2l3",
+        "t4m1l2"
+       ]
+      },
+      {
+       "id": "t4m2l5",
+       "title": "Triple faults and reading the CPU's last words",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "Triple Fault",
+        "Troubleshooting"
+       ],
+       "further": [
+        "I Can't Get Interrupts Working",
+        "Non Maskable Interrupt",
+        "Bochs",
+        "QEMU"
+       ],
+       "why": "A triple fault resets the machine with no output. You need a routine for finding the cause instead of changing code at random. QEMU's -d int, -no-reboot and -no-shutdown are explained in the QEMU article in further reading.",
+       "objectives": [
+        "After this lesson you can explain how a double fault turns into a triple fault.",
+        "After this lesson you can use QEMU's -d int and -no-reboot to see the last exceptions before reset.",
+        "After this lesson you can find the faulting instruction from an address using objdump or addr2line."
+       ],
+       "checkpoint": "Load the IDTR with limit 0 (a struct with limit=0, base=0, then lidt) and execute ud2 from a named C function. Run with -d int,cpu_reset -no-reboot -D qemu.log. In the log, find v=06, then the failed deliveries that end in v=08 (the double fault), then the reset. Take the EIP from the first exception and map it with addr2line -e kernel.elf to the line holding ud2, before you look at your change.",
+       "prereq": [
+        "t4m2l4"
+       ]
+      },
+      {
+       "id": "t4m2l6",
+       "title": "Stack traces and kernel panics",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "Stack Trace",
+        "Kernel Panic"
+       ],
+       "further": [
+        "Stack",
+        "Internal Kernel Debugger",
+        "DWARF"
+       ],
+       "why": "Knowing the function that crashed is good; knowing how you got there is better.",
+       "objectives": [
+        "After this lesson you can walk frame pointers to print a call chain.",
+        "After this lesson you can write a panic() that prints a message, registers and a backtrace, then halts every CPU."
+       ],
+       "checkpoint": "Build with -fno-omit-frame-pointer (at Meaty Skeleton's default -O2, GCC drops the EBP chain you need to walk). Call panic() three functions deep. The output must list all three return addresses, and addr2line must map them to the right functions.",
+       "prereq": [
+        "t4m2l5"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t4m3",
+     "title": "Habits that keep you unstuck",
+     "summary": "Compiler checks, tutorial known bugs, and a test suite that grows with the kernel.",
+     "lessons": [
+      {
+       "id": "t4m3l1",
+       "title": "Let the compiler catch bugs: SSP and UBSan",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Stack Smashing Protector",
+        "Undefined Behavior Sanitization"
+       ],
+       "further": [
+        "Security",
+        "Calling Global Constructors"
+       ],
+       "why": "Many kernel crashes are plain C bugs. The compiler can detect some at runtime if you give it a few hooks.",
+       "objectives": [
+        "After this lesson you can enable -fstack-protector and provide __stack_chk_fail.",
+        "After this lesson you can provide UBSan handlers that report the file and line of undefined behaviour.",
+        "After this lesson you can say which functions -fstack-protector, -strong and -all instrument."
+       ],
+       "checkpoint": "Overflow a local char buf[16] with a 32-byte memcpy (or build with -fstack-protector-all). The kernel must report stack smashing and halt instead of continuing with corrupted state.",
+       "prereq": [
+        "t4m2l6"
+       ]
+      },
+      {
+       "id": "t4m3l2",
+       "title": "When the tutorial does not work",
+       "level": 1,
+       "minutes": 40,
+       "articles": [
+        "I have followed a tutorial and it does not work",
+        "James Molloy's Tutorial Known Bugs",
+        "Posting Checklist"
+       ],
+       "further": [
+        "Bran's Kernel Development Tutorial Known Bugs",
+        "Brokenthorn's Known Bugs",
+        "My Bootloader Does Not Work",
+        "How To Ask Questions",
+        "I Can't Get Interrupts Working"
+       ],
+       "why": "Popular tutorials have known bugs, and copied code carries them. A routine for isolating problems beats asking strangers to guess.",
+       "objectives": [
+        "After this lesson you can check a tutorial against its known-bugs list before trusting it.",
+        "After this lesson you can write a help request with the symptom, minimal code, logs and what you already tried.",
+        "After this lesson you can recognise the best-known copied-tutorial bugs, such as passing the register struct to an interrupt handler by value, or ISRs 17 and 21 missing their error codes."
+       ],
+       "checkpoint": "Take your last real bug and write it up as a forum post following the Posting Checklist, even if you never send it.",
+       "prereq": [
+        "t4m2l4"
+       ]
+      },
+      {
+       "id": "t4m3l3",
+       "title": "Automated boot tests",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Unit Testing",
+        "QEMU"
+       ],
+       "further": [
+        "Testing",
+        "Automated Build Using CircleCI",
+        "Troubleshooting"
+       ],
+       "why": "From here on every checkpoint becomes a test. A script that boots QEMU headless and checks the serial log tells you within seconds when a new feature breaks an old one. QEMU covers -serial, -no-reboot, -d int and debugcon on port 0xE9. isa-debug-exit is not on the wiki, so here is its rule: with -device isa-debug-exit,iobase=0xf4,iosize=0x04, writing value v to port 0xf4 makes QEMU exit with status (v<<1)|1, which is always odd, so a wrapper script turns it into 0 or 1.",
+       "objectives": [
+        "After this lesson you can boot QEMU headless and capture serial output to a file.",
+        "After this lesson you can exit QEMU from the guest with isa-debug-exit and map its odd exit status to pass or fail.",
+        "After this lesson you can turn a checkpoint into a pass/fail test."
+       ],
+       "checkpoint": "make test boots QEMU with -display none -serial file:test.log -device isa-debug-exit,iobase=0xf4,iosize=0x04 and runs each test in a fresh boot. The guest writes 0x10 to port 0xf4 on pass and 0x11 on fail, so QEMU exits with 33 or 35; the make test wrapper maps 33 to 0 and anything else (including a timeout from `timeout 10s`) to 1. Add your break-it drills so far as tests that must fail in the expected way: divide by zero reports vector 0, the SSP check trips, kprintf formats match. Every later checkpoint marked 'harness test' adds to this suite.",
+       "prereq": [
+        "t4m3l1",
+        "t3m2l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t5",
+   "title": "Interrupts, Time and Input",
+   "summary": "Hardware IRQs through the 8259 PIC, a timer tick, wall-clock time and a keyboard driver in two sittings.",
+   "goal": "Receive and acknowledge device interrupts, keep uptime and the date, and read typed lines from the keyboard reliably.",
+   "modules": [
+    {
+     "id": "t5m1",
+     "title": "Hardware interrupts and time",
+     "summary": "Route device interrupts, acknowledge them, and count time.",
+     "lessons": [
+      {
+       "id": "t5m1l1",
+       "title": "The 8259 PIC: remap and acknowledge",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "8259 PIC"
+       ],
+       "further": [
+        "I Can't Get Interrupts Working",
+        "APIC",
+        "Non Maskable Interrupt",
+        "Advanced Integrated Peripheral"
+       ],
+       "why": "By default the PIC's IRQs overlap the CPU exception numbers. Forgetting to remap is a classic first-week bug.",
+       "objectives": [
+        "After this lesson you can remap the PICs to vectors 32-47 and mask and unmask individual IRQs.",
+        "After this lesson you can send end-of-interrupt correctly and explain spurious IRQ 7 and 15.",
+        "After this lesson you can inspect the PIC state with info pic in the QEMU monitor."
+       ],
+       "checkpoint": "Remap the PICs to vectors 32-47 and unmask only IRQ1. Your IRQ1 handler must read port 0x60 and then send EOI. Predict the mask value info pic will show, then check it. Break it on purpose: keep the 0x60 read but skip the EOI, and observe that only one key arrives. Then restore the EOI and skip the 0x60 read instead: same symptom, different cause. Write both causes in DEBUGGING.md.",
+       "prereq": [
+        "t4m2l4",
+        "t3m1l3"
+       ]
+      },
+      {
+       "id": "t5m1l2",
+       "title": "A timer tick with the PIT",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "Programmable Interval Timer",
+        "Timer Interrupt Sources"
+       ],
+       "further": [
+        "Time And Date",
+        "HPET",
+        "APIC Timer",
+        "Timekeeping in virtual machines"
+       ],
+       "why": "The timer interrupt is how a kernel measures time and, later, switches tasks.",
+       "objectives": [
+        "After this lesson you can program PIT channel 0 to a chosen frequency.",
+        "After this lesson you can keep an uptime counter and implement sleep(ms)."
+       ],
+       "checkpoint": "Print uptime once per second for ten seconds; compare with a stopwatch and explain any drift. Harness test: sleep(100) returns, and the tick counter advanced by the number of ticks your frequency predicts.",
+       "prereq": [
+        "t5m1l1"
+       ]
+      },
+      {
+       "id": "t5m1l3",
+       "title": "Wall-clock time from the CMOS",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "CMOS",
+        "RTC"
+       ],
+       "further": [
+        "Time And Date",
+        "Julian Day Number",
+        "Timekeeping in virtual machines"
+       ],
+       "why": "The PIT counts ticks since boot; the CMOS clock knows the date. Real systems need both, and reading CMOS is a short exercise in careful port I/O.",
+       "objectives": [
+        "After this lesson you can read RTC registers and handle BCD and 12-hour formats.",
+        "After this lesson you can avoid reading during an update.",
+        "After this lesson you can convert date and time to a Unix timestamp."
+       ],
+       "checkpoint": "Print the date and time at boot; it matches the host clock (QEMU -rtc base=localtime) to the second.",
+       "prereq": [
+        "t5m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t5m2",
+     "title": "Keyboard",
+     "summary": "The first driver with real state, split into two sittings.",
+     "lessons": [
+      {
+       "id": "t5m2l1",
+       "title": "Keyboard, part 1: scan codes to characters",
+       "level": 2,
+       "minutes": 75,
+       "articles": [
+        "PS/2 Keyboard"
+       ],
+       "further": [
+        "Terminals",
+        "USB Human Interface Devices",
+        "Text UI"
+       ],
+       "why": "Input turns a demo into something you can interact with, and it is the first device driver with real state.",
+       "objectives": [
+        "After this lesson you can read scan codes from IRQ1 and translate scan code set 1 or 2 to characters.",
+        "After this lesson you can track shift and caps lock and buffer keys for later reads."
+       ],
+       "checkpoint": "Type a line, press Enter, and have the kernel echo it back. Shift, caps lock and backspace must work.",
+       "prereq": [
+        "t5m1l1"
+       ]
+      },
+      {
+       "id": "t5m2l2",
+       "title": "Keyboard, part 2: the 8042 controller and an input buffer",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "I8042 PS/2 Controller"
+       ],
+       "further": [
+        "PS/2 Mouse",
+        "Reboot"
+       ],
+       "why": "Part 1 relied on the firmware having set up the PS/2 controller. On real machines, especially with USB legacy emulation, it may not have. Initialising the controller yourself, and buffering keys between the IRQ handler and the reader, makes input reliable.",
+       "objectives": [
+        "After this lesson you can initialise the 8042: disable devices, flush the output buffer, set the configuration byte and run the self-tests.",
+        "After this lesson you can detect which devices are attached and whether a second port exists.",
+        "After this lesson you can pass keys from the IRQ handler to readers through a ring buffer without losing track of any.",
+        "After this lesson you can say what controller translation does and choose to keep it on (set 1) or turn it off and decode set 2."
+       ],
+       "checkpoint": "At boot, log the controller self-test result (0x55 means pass) and the port test result. After the self-tests, write the configuration byte back with bit 6 set again (or switch your decoder to set 2), re-enable port 1 and its IRQ (bit 0), then confirm typing still works. Predict, then observe: leave bit 6 clear once and write down the bytes you get for 'a' press and release (0x1C, then 0xF0 0x1C). With a 16-entry ring buffer and a slow reader, keys beyond the buffer are dropped and counted, never duplicated.",
+       "prereq": [
+        "t5m2l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t6",
+   "title": "Memory",
+   "summary": "What RAM exists, a physical frame allocator, paging, the higher half, a map/unmap API and a kernel heap, ending with the kernel-model decision.",
+   "goal": "Allocate physical frames, map and unmap pages with chosen permissions, run the kernel in the higher half, and use kmalloc/kfree with corruption checks.",
+   "modules": [
+    {
+     "id": "t6m1",
+     "title": "Physical memory",
+     "summary": "Find the RAM, plan the layers, and hand out frames.",
+     "lessons": [
+      {
+       "id": "t6m1l1",
+       "title": "Find out what memory you have",
+       "level": 1,
+       "minutes": 50,
+       "articles": [
+        "Detecting Memory (x86)",
+        "Memory Map (x86)"
+       ],
+       "further": [
+        "Multiboot",
+        "Limine",
+        "System Management BIOS"
+       ],
+       "why": "Writing to memory that is not RAM, or is reserved by firmware, causes crashes that look random.",
+       "objectives": [
+        "After this lesson you can read the memory map your bootloader provides.",
+        "After this lesson you can explain why you must not probe memory by writing to it."
+       ],
+       "checkpoint": "Print every memory map entry (base, length, type) and the total usable RAM. Change QEMU's -m and confirm the total follows.",
+       "prereq": [
+        "t4m2l4"
+       ]
+      },
+      {
+       "id": "t6m1l2",
+       "title": "Memory management: the big picture",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "Memory management",
+        "Brendan's Memory Management Guide"
+       ],
+       "further": [
+        "Memory Management Unit",
+        "Program Memory Allocation Types",
+        "CPU Caches"
+       ],
+       "why": "Physical allocator, virtual memory manager and heap are three separate layers. Mixing them up is the most common memory design mistake.",
+       "objectives": [
+        "After this lesson you can name the three layers and what each one hands to the next.",
+        "After this lesson you can sketch your kernel's virtual memory layout."
+       ],
+       "checkpoint": "Write MEMORY.md with your planned virtual address map: kernel image, heap, page tables, user space.",
+       "prereq": [
+        "t6m1l1"
+       ]
+      },
+      {
+       "id": "t6m1l3",
+       "title": "A physical page frame allocator",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Page Frame Allocation",
+        "Writing A Page Frame Allocator"
+       ],
+       "further": [
+        "Memory Allocation",
+        "Program Memory Allocation Types"
+       ],
+       "why": "Everything else in memory management asks this allocator for pages. It must never hand out the same page twice.",
+       "objectives": [
+        "After this lesson you can build a bitmap or free-list page allocator from the memory map.",
+        "After this lesson you can reserve the kernel image and boot structures so they are never handed out."
+       ],
+       "checkpoint": "Allocate every free page, check that none overlaps the kernel or another allocation, free them all, and confirm the free count matches the start. Keep it as a harness test.",
+       "prereq": [
+        "t6m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t6m2",
+     "title": "Virtual memory",
+     "summary": "Page tables on paper, then for real, then in the higher half with an API on top.",
+     "lessons": [
+      {
+       "id": "t6m2l1",
+       "title": "Paging concepts",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Paging",
+        "Page Tables"
+       ],
+       "further": [
+        "Memory Management Unit",
+        "Physical Address Extension",
+        "Setting Up Paging With PAE"
+       ],
+       "why": "Paging is how a kernel isolates processes and places itself in memory. Every later feature depends on it.",
+       "objectives": [
+        "After this lesson you can translate a virtual address to a physical one by hand through the page table levels.",
+        "After this lesson you can explain the present, writable and user bits and what a page fault reports."
+       ],
+       "checkpoint": "On paper, translate 0xC0101234, 0x00400ABC and 0xFFFFF000 through a 2-level page directory and page table you design: give the directory index, table index and offset for each, and say which entries must exist. Then write down the page fault error code for a user-mode write to a present, read-only page.",
+       "prereq": [
+        "t6m1l3"
+       ]
+      },
+      {
+       "id": "t6m2l2",
+       "title": "Turn paging on",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Setting Up Paging",
+        "Identity Paging"
+       ],
+       "further": [
+        "Setting Up Paging With PAE",
+        "Paging",
+        "I Can't Get Interrupts Working"
+       ],
+       "why": "Enabling paging with a wrong table kills the kernel on the very next instruction. Doing it carefully, with your page fault handler ready, makes the failure readable.",
+       "objectives": [
+        "After this lesson you can build page tables, load CR3 and set the paging bit.",
+        "After this lesson you can explain why the code that sets CR0.PG must be identity-mapped, and predict which addresses fault after paging is on."
+       ],
+       "checkpoint": "Make sure your page fault handler (vector 14) prints CR2 and decodes the error code before you set CR0.PG. Identity-map the first 4 MiB, predict what info tlb will list, enable paging and compare. Then touch an unmapped address on purpose: the handler must print the faulting address and the error code bits.",
+       "prereq": [
+        "t6m2l1"
+       ]
+      },
+      {
+       "id": "t6m2l3",
+       "title": "Move the kernel to the higher half",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Higher Half x86 Bare Bones"
+       ],
+       "further": [
+        "Higher Half Kernel",
+        "Higher Half x86 Bare Bones (Backup)",
+        "Multiboot"
+       ],
+       "why": "Placing the kernel in the top of the address space leaves the bottom free for user programs and simplifies later work. It also means reworking your boot stub: paging has to be on before the jump to the high addresses.",
+       "objectives": [
+        "After this lesson you can link the kernel at a high virtual address and load it at a low physical one.",
+        "After this lesson you can remove the identity map once the jump to the higher half is done.",
+        "After this lesson you can convert the physical addresses the bootloader hands you (Multiboot info, modules, memory map) before you dereference them."
+       ],
+       "checkpoint": "Print the address of kernel_main: it must be above 0xC0000000, and info tlb must show no low identity mapping except what you kept on purpose. Print the Multiboot memory map again after the move; if it crashes, you are still treating its physical address as a virtual one.",
+       "prereq": [
+        "t6m2l2"
+       ]
+      },
+      {
+       "id": "t6m2l4",
+       "title": "Map and unmap pages, and lock down kernel memory",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Paging",
+        "TLB"
+       ],
+       "further": [
+        "Memory Management Unit",
+        "Page Tables",
+        "Fractal Page Mapping",
+        "Brendan's Memory Management Guide",
+        "Security"
+       ],
+       "why": "Static page tables are not enough once memory is allocated at runtime. A map_page/unmap_page API is what the heap, processes and every memory-mapped driver are built on, and read-only kernel sections turn silent corruption into a fault. Paging is primary again, but read different sections this time: map_page/unmap_page code is in Paging §Manipulation and §INVLPG, and CR0.WP is in §Enabling (read in Paging concepts). TLB says when a flush is needed; Page Tables, in further reading, is the page that shows recursive mapping.",
+       "objectives": [
+        "After this lesson you can map a physical frame at any virtual address with chosen flags, and unmap it.",
+        "After this lesson you can reach page tables after paging is on, through recursive mapping or a direct map.",
+        "After this lesson you can invalidate single TLB entries with invlpg and say when a full CR3 reload is needed.",
+        "After this lesson you can map .text and .rodata read-only and set CR0.WP so the kernel obeys it."
+       ],
+       "checkpoint": "Harness tests: map a fresh frame at 0xD0000000, write a pattern, unmap it, and confirm the next access page-faults with CR2 = 0xD0000000. Writing to the address of a kernel function must page-fault with the write bit set in the error code. Then leave the page below your boot stack unmapped, recurse until the stack overflows, and find #PF, then #DF (v=08), then the reset in the -d int log: the CPU cannot push the #PF frame onto an unmapped stack, and without a separate stack for #DF nothing can recover. Write down why; the 64-bit port fixes this with an IST stack.",
+       "prereq": [
+        "t6m2l3",
+        "t6m1l3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t6m3",
+     "title": "Heap and the kernel-model decision",
+     "summary": "Variable-sized allocation, then the design choice that shapes everything after it.",
+     "lessons": [
+      {
+       "id": "t6m3l1",
+       "title": "A kernel heap: kmalloc and kfree",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Writing a memory manager",
+        "Memory Allocation"
+       ],
+       "further": [
+        "Heap",
+        "Garbage collection",
+        "Smart Pointer"
+       ],
+       "why": "Most kernel data structures are variable-sized. Without a heap, every later feature is harder to write.",
+       "objectives": [
+        "After this lesson you can build a heap on top of your page allocator and virtual memory manager.",
+        "After this lesson you can detect double frees and heap corruption with simple checks."
+       ],
+       "checkpoint": "Run a stress test: 10,000 random allocations and frees of random sizes, then confirm all memory returns to the free pool. Keep it as a harness test.",
+       "prereq": [
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t6m3l2",
+       "title": "Decision gate: kernel design and next steps",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "Going Further on x86",
+        "Monolithic Kernel",
+        "Microkernel"
+       ],
+       "further": [
+        "Modular Kernel",
+        "Hybrid Kernel",
+        "Multikernel",
+        "Exokernel",
+        "What Order Should I Make Things In?"
+       ],
+       "why": "From here, monolithic and microkernel designs diverge in how drivers and services work. Decide now so you do not rewrite later. You now know enough about interrupts and memory to see what each design costs.",
+       "objectives": [
+        "After this lesson you can compare monolithic, micro and modular kernels by complexity, safety and performance.",
+        "After this lesson you can choose a design and list how it changes drivers, IPC and system calls."
+       ],
+       "checkpoint": "Record your kernel model in DECISIONS.md, and list the next five features in dependency order.",
+       "prereq": [
+        "t6m3l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t7",
+   "title": "Multitasking and Synchronization",
+   "summary": "What a task is, a context switch, a preemptive scheduler built in two sittings, and the locks that make shared data safe.",
+   "goal": "Run several kernel threads that block, sleep and get preempted, and protect shared data with spinlocks and mutexes, proven by tests that fail without them.",
+   "modules": [
+    {
+     "id": "t7m1",
+     "title": "Tasks and scheduling",
+     "summary": "From a task struct to a scheduler with task states.",
+     "lessons": [
+      {
+       "id": "t7m1l1",
+       "title": "Processes and threads",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Processes and Threads",
+        "Thread",
+        "Kernel Multitasking"
+       ],
+       "further": [
+        "Multitasking Systems",
+        "Blocking Process",
+        "Monotasking Systems"
+       ],
+       "why": "Before switching tasks you need a clear idea of what a task is and what state must be saved.",
+       "objectives": [
+        "After this lesson you can describe what a process owns and what a thread owns.",
+        "After this lesson you can design a task control block for your kernel."
+       ],
+       "checkpoint": "Define your task struct in code with comments explaining each field.",
+       "prereq": [
+        "t6m3l2"
+       ]
+      },
+      {
+       "id": "t7m1l2",
+       "title": "Cooperative multitasking and context switches",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Cooperative Multitasking",
+        "Context Switching"
+       ],
+       "further": [
+        "Stack",
+        "Task State Segment"
+       ],
+       "why": "Cooperative switching lets you get the context switch right without the extra difficulty of interrupts arriving at any moment.",
+       "objectives": [
+        "After this lesson you can write a context switch in assembly that saves and restores registers and stack.",
+        "After this lesson you can run two kernel tasks that yield to each other."
+       ],
+       "checkpoint": "Two kernel tasks print A and B alternately by calling yield(). Step through one switch in GDB and watch the stack pointer change.",
+       "prereq": [
+        "t7m1l1"
+       ]
+      },
+      {
+       "id": "t7m1l3",
+       "title": "A scheduler, task states and time accounting (Brendan steps 1-4)",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Brendan's Multi-tasking Tutorial"
+       ],
+       "further": [
+        "Scheduling Algorithms",
+        "Task State Segment"
+       ],
+       "why": "This tutorial builds a scheduler in small verified steps. Steps 1-4 give you a ready list, task states and a schedule() you understand line by line. The article is long; this lesson covers steps 1 to 4 only.",
+       "objectives": [
+        "After this lesson you can initialise the first task from the boot context.",
+        "After this lesson you can keep a ready queue and pick the next task.",
+        "After this lesson you can track CPU time per task."
+       ],
+       "checkpoint": "Three kernel threads run in round-robin via schedule(); a debug command prints each thread's state and CPU time used.",
+       "prereq": [
+        "t7m1l2",
+        "t5m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t7m2",
+     "title": "Races, blocking and preemption",
+     "summary": "See a race between an IRQ and your code, then finish the scheduler: locks, blocking, sleep, idle, time slices and termination.",
+     "lessons": [
+      {
+       "id": "t7m2l1",
+       "title": "Race conditions and atomic operations",
+       "level": 2,
+       "minutes": 35,
+       "articles": [
+        "Synchronization Primitives",
+        "Atomic operation"
+       ],
+       "further": [
+        "Mutual Exclusion",
+        "Memory barriers",
+        "Volatile (keyword)"
+       ],
+       "why": "An interrupt can land between any two instructions, and soon preemption will too. Any shared variable can then be read half-updated. Brendan's next steps add locks, so see the race first.",
+       "objectives": [
+        "After this lesson you can explain a race condition with a concrete interleaving.",
+        "After this lesson you can use atomic instructions (lock xchg, cmpxchg) from C.",
+        "After this lesson you can say when disabling interrupts is enough and when it is not."
+       ],
+       "checkpoint": "Harness test: kernel_main reads the 64-bit tick counter (two 32-bit loads on i686) in a tight loop while the PIT IRQ increments it. Detect a torn read: a value that goes backwards or jumps by 2^32. Then fix it with cli/sti around the read, and explain why that is enough on one CPU but not on two.",
+       "prereq": [
+        "t7m1l3",
+        "t5m1l2",
+        "t4m3l3"
+       ]
+      },
+      {
+       "id": "t7m2l2",
+       "title": "Locking, blocking and sleep (Brendan steps 5-9)",
+       "level": 3,
+       "minutes": 120,
+       "articles": [
+        "Brendan's Multi-tasking Tutorial"
+       ],
+       "further": [
+        "Blocking Process",
+        "Thread"
+       ],
+       "why": "A kernel where every thread spins is wasteful. Blocking and sleeping let a thread wait without burning the CPU. Steps 5 and 8 add two versions of the scheduler lock; you saw in the previous lesson why they are needed.",
+       "objectives": [
+        "After this lesson you can block and unblock tasks safely, with the scheduler lock held.",
+        "After this lesson you can implement sleep until a deadline and wake sleepers from the timer IRQ."
+       ],
+       "checkpoint": "A clock thread sleeps one second between prints, and a keyboard thread blocks until IRQ1 unblocks it. Neither thread spins.",
+       "prereq": [
+        "t7m1l3",
+        "t5m2l2",
+        "t7m2l1"
+       ]
+      },
+      {
+       "id": "t7m2l3",
+       "title": "Idle, time slices and termination (Brendan steps 10-12)",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Brendan's Multi-tasking Tutorial"
+       ],
+       "further": [
+        "Scheduling Algorithms",
+        "Real-Time Systems",
+        "Blocking Process"
+       ],
+       "why": "With everything blocked the CPU needs something to do, a CPU-bound thread must not starve the others, and a finished thread must give its memory back. These three steps finish the scheduler.",
+       "objectives": [
+        "After this lesson you can halt the CPU when idle, with or without an idle task.",
+        "After this lesson you can preempt tasks when their time slice runs out on a timer tick.",
+        "After this lesson you can terminate a task and free its stack from another task."
+       ],
+       "checkpoint": "A CPU-bound thread is preempted and the clock thread still prints on time, QEMU host CPU use drops when everything is idle, and a thread that returns is reaped and its stack freed (the free-frame count returns to its start).",
+       "prereq": [
+        "t7m2l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t7m3",
+     "title": "Not stepping on each other",
+     "summary": "Locks that spin, locks that sleep, and the new failure that locks bring.",
+     "lessons": [
+      {
+       "id": "t7m3l1",
+       "title": "Spinlocks, semaphores and mutexes",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Spinlock",
+        "Semaphore"
+       ],
+       "further": [
+        "Brendan's Multi-tasking Tutorial",
+        "Mutual Exclusion",
+        "Eleanore Semaphore",
+        "Synchronization Primitives"
+       ],
+       "why": "Spinlocks protect short critical sections; semaphores and mutexes let waiting threads sleep. Your kernel needs both. Steps 13 and 15 of Brendan's tutorial (mutexes and semaphores, then Schedule() version 3) build the same things on the scheduler you already have; read them alongside. Step 14 belongs with the IPC lesson.",
+       "objectives": [
+        "After this lesson you can implement a spinlock with an atomic test-and-set.",
+        "After this lesson you can build a sleeping mutex and a counting semaphore on your scheduler.",
+        "After this lesson you can choose between spinning and sleeping."
+       ],
+       "checkpoint": "Harness test: two threads each increment a shared `volatile uint32_t` counter 1,000,000 times with an explicit load, short delay, store sequence. Without a lock, assert the total is wrong in at least one of 5 runs. With a spinlock and with a mutex, it is exactly 2,000,000 every time. Protect the heap and terminal with locks.",
+       "prereq": [
+        "t7m2l1",
+        "t7m2l3"
+       ]
+      },
+      {
+       "id": "t7m3l2",
+       "title": "Deadlock and how to avoid it",
+       "level": 3,
+       "minutes": 35,
+       "articles": [
+        "Deadlock"
+       ],
+       "further": [
+        "Synchronization Primitives",
+        "Spinlock"
+       ],
+       "why": "Locks introduce a new failure: everything waits forever. A lock-ordering rule decided now is cheaper than debugging a frozen kernel later.",
+       "objectives": [
+        "After this lesson you can name the four conditions for deadlock.",
+        "After this lesson you can apply a global lock order.",
+        "After this lesson you can detect a stuck lock with a timeout."
+       ],
+       "checkpoint": "Write your lock order into DECISIONS.md. Add a debug spinlock that panics with the lock's name after N spin iterations (calibrate N against the PIT once at boot) or after a TSC delta (rdtsc) of about one second. Do not use the tick counter, because IRQs are off while you spin. Trigger it once by acquiring the same lock twice.",
+       "prereq": [
+        "t7m3l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t8",
+   "title": "User Space: Programs, System Calls and a Shell",
+   "summary": "Ring 3, system calls, an initrd, an ELF loader, process lifecycle, IPC, a C library and a shell.",
+   "goal": "Load ELF programs from an initrd into their own address spaces, run them in ring 3, wait for their exit codes, and start them from your own shell.",
+   "modules": [
+    {
+     "id": "t8m1",
+     "title": "Ring 3",
+     "summary": "The privilege boundary and the API across it.",
+     "lessons": [
+      {
+       "id": "t8m1l1",
+       "title": "Getting to ring 3",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Getting to Ring 3",
+        "Task State Segment"
+       ],
+       "further": [
+        "Security",
+        "Supervisor Memory Protection",
+        "Local Descriptor Table"
+       ],
+       "why": "User mode is what stops a buggy program from crashing the whole system.",
+       "objectives": [
+        "After this lesson you can set up a TSS so interrupts from user mode land on a kernel stack.",
+        "After this lesson you can enter ring 3 with iret and return to the kernel through an interrupt.",
+        "After this lesson you can map user code and a user stack with the U/S bit set in both the PDE and the PTE."
+       ],
+       "checkpoint": "Copy a small function (or a flat binary) to a page mapped user-accessible at 0x400000, give it a user stack page below 0xC0000000, iret into it, and have it execute cli. Your kernel must report the #GP from CPL 3 as a user fault, not a kernel crash. Predict first what happens if you forget the U bit on the code page (#PF, error code 0x5), and try it once. Break it on purpose: leave esp0 in the TSS at 0, predict what happens on the first interrupt from ring 3, and confirm with -d int,cpu_reset.",
+       "prereq": [
+        "t7m1l2",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t8m1l2",
+       "title": "System calls",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "System Calls"
+       ],
+       "further": [
+        "SYSENTER",
+        "ARM System Calls",
+        "Calling Conventions"
+       ],
+       "why": "System calls are your OS's API. The calling convention you choose now is used by every program you ever run.",
+       "objectives": [
+        "After this lesson you can implement a system call entry by interrupt or syscall/sysenter.",
+        "After this lesson you can check user pointers before the kernel touches them."
+       ],
+       "checkpoint": "A user program calls write(1, \"hi\\n\", 3) and exit(0) through your syscall interface. Passing a kernel address to write must return an error, not crash. Add the bad-pointer case as a harness test.",
+       "prereq": [
+        "t8m1l1"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t8m2",
+     "title": "Running programs",
+     "summary": "Files with no disk driver, executables, and the life of a process.",
+     "lessons": [
+      {
+       "id": "t8m2l1",
+       "title": "Files without a disk driver: initrd and tar",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Initrd",
+        "Tar"
+       ],
+       "further": [
+        "USTAR",
+        "Multiboot"
+       ],
+       "why": "You need programs to load before you have disk drivers. A boot module holding a tar archive solves this cheaply.",
+       "objectives": [
+        "After this lesson you can have the bootloader load a module and find it in memory.",
+        "After this lesson you can parse a USTAR archive and look up files by name."
+       ],
+       "checkpoint": "List every file in your initrd at boot with its size, and print the contents of a text file from it. Remember that the module address in the Multiboot info is physical.",
+       "prereq": [
+        "t6m2l3",
+        "t6m3l1"
+       ]
+      },
+      {
+       "id": "t8m2l2",
+       "title": "Executable formats and ELF",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "ELF"
+       ],
+       "further": [
+        "ELF Tutorial",
+        "Executable Formats",
+        "PE",
+        "Object Files",
+        "Symbol Table",
+        "COFF"
+       ],
+       "why": "Your OS has to understand the file format your compiler produces before it can run anything. ELF §Program header and §Loading ELF Binaries are what you need now. In ELF Tutorial (further reading), read the header checks and §The ELF Program Header; its section and relocation material is for kernel modules later.",
+       "objectives": [
+        "After this lesson you can read ELF headers and program headers.",
+        "After this lesson you can validate an ELF file before loading it."
+       ],
+       "checkpoint": "Write a readelf-like dump in your kernel that prints the entry point and every PT_LOAD segment of a file from the initrd. Break it on purpose: corrupt the ELF magic of one file and confirm the loader rejects it with a clear message.",
+       "prereq": [
+        "t8m2l1"
+       ]
+      },
+      {
+       "id": "t8m2l3",
+       "title": "Load and run a program",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Loading a Process"
+       ],
+       "further": [
+        "Dynamic Linker",
+        "Thread Local Storage",
+        "Executable Formats",
+        "Program Memory Allocation Types"
+       ],
+       "why": "This is where everything from paging to system calls comes together into running a separate program. Loading a Process is a design discussion (who loads, who owns the address space); the mapping mechanics come from ELF §Loading ELF Binaries and Paging §Manipulation.",
+       "objectives": [
+        "After this lesson you can create an address space, map ELF segments and a user stack, and jump to the entry point.",
+        "After this lesson you can clean up a process's memory when it exits."
+       ],
+       "checkpoint": "Build the test program with i686-elf-gcc -ffreestanding -nostdlib, a linker script placing it at 0x400000, and a 5-line _start that calls your exit syscall. Load and run it from the initrd, let it exit, then run it again 100 times without leaking pages.",
+       "prereq": [
+        "t8m2l2",
+        "t8m1l2",
+        "t7m2l3"
+       ]
+      },
+      {
+       "id": "t8m2l4",
+       "title": "Process lifecycle: spawn, exit and wait",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Blocking Process"
+       ],
+       "further": [
+        "Processes and Threads",
+        "Kernel Multitasking",
+        "Signals"
+       ],
+       "why": "A shell must start a child, wait for it and collect its exit code. The wiki has no article on fork, exec or process creation, so this design is yours; Blocking Process shows how wait() parks the parent until the child exits.",
+       "objectives": [
+        "After this lesson you can implement spawn(path, argv), or fork plus exec, and exit(code).",
+        "After this lesson you can make wait(pid) block the parent until the child exits, then free the child's resources."
+       ],
+       "checkpoint": "Harness test: a parent spawns a child that exits with code 3, and the parent waits and prints the code. Run it 100 times: the free-frame count must return to its starting value.",
+       "prereq": [
+        "t8m2l3",
+        "t7m3l1"
+       ]
+      },
+      {
+       "id": "t8m2l5",
+       "title": "File descriptors, pipe and dup2",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Unix Pipes"
+       ],
+       "further": [
+        "Processes and Threads",
+        "Signals"
+       ],
+       "why": "A shell connects one program's output to another's input. The wiki has no article on file descriptor tables (File Management and Signals are stubs), so the fd table design is your own work; Unix Pipes shows how pipes fit into it.",
+       "objectives": [
+        "After this lesson you can give each process a file descriptor table with 0, 1 and 2 set up, inherited by spawned children.",
+        "After this lesson you can implement pipe() and dup2(), and say what happens when the last writer closes."
+       ],
+       "checkpoint": "A parent spawns a child that writes 'hello' into a pipe and exits with code 3; the parent reads the pipe, waits, and prints the word and the exit code. Run it 100 times as a harness test: the free-frame count must return to its starting value.",
+       "prereq": [
+        "t8m2l4"
+       ]
+      },
+      {
+       "id": "t8m2l6",
+       "title": "Processes that talk: IPC",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "Message Passing",
+        "Shared Memory"
+       ],
+       "further": [
+        "Message Passing Tutorial",
+        "IPC Data Copying methods",
+        "Remote Procedure Call",
+        "Signals",
+        "Socket"
+       ],
+       "why": "Microkernels depend on IPC for everything; monolithic kernels still need pipes and shared memory for programs. Step 14 of Brendan's tutorial sketches how IPC fits into the scheduler.",
+       "objectives": [
+        "After this lesson you can implement synchronous message passing between two processes.",
+        "After this lesson you can compare copying, page remapping and shared memory for moving data."
+       ],
+       "checkpoint": "Two user processes exchange 1,000 messages through your IPC and verify each one's contents.",
+       "prereq": [
+        "t8m2l4"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t8m3",
+     "title": "Userland",
+     "summary": "A C library for your programs and a shell to start them.",
+     "lessons": [
+      {
+       "id": "t8m3l1",
+       "title": "A C library for your OS",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Creating a C Library",
+        "C Library"
+       ],
+       "further": [
+        "Library Calls",
+        "Porting Newlib",
+        "Calling Global Constructors"
+       ],
+       "why": "Programs expect printf, malloc and file functions. Writing your own libc or porting one is the bridge to real software.",
+       "objectives": [
+        "After this lesson you can choose between writing a libc and porting Newlib or another libc.",
+        "After this lesson you can build crt0 and a minimal libc that sits on your system calls.",
+        "After this lesson you can add an sbrk (or anonymous mmap) system call that maps fresh zeroed user pages, and back malloc with it."
+       ],
+       "checkpoint": "A user program built with your i686-elf cross-compiler against your own crt0 and libc uses printf and malloc and runs on your OS. malloc 1 MB in 4 KB pieces and free it; the free-frame count returns to its start after the process exits.",
+       "prereq": [
+        "t8m2l5"
+       ]
+      },
+      {
+       "id": "t8m3l2",
+       "title": "A shell",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Creating A Shell"
+       ],
+       "further": [
+        "Terminals",
+        "Command Line",
+        "Unix Pipes",
+        "Lino Commando"
+       ],
+       "why": "A shell turns the kernel into a system you can use and test interactively.",
+       "objectives": [
+        "After this lesson you can read a line, split it into arguments and start the program named.",
+        "After this lesson you can add built-in commands such as cd, help and exit."
+       ],
+       "checkpoint": "From your shell, run two different programs and see each one's exit code, then run a two-stage pipeline such as `echo hello world | upper`, built on spawn, pipe, dup2 and wait. Listing the initrd is a shell built-in that calls a kernel-side function; a user-space ls waits for readdir in the VFS lesson.",
+       "prereq": [
+        "t8m3l1",
+        "t8m2l5",
+        "t5m2l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t9",
+   "title": "Storage and Filesystems",
+   "summary": "One file interface for everything, partition tables tested from a RAM disk, PCI and a driver model, a first disk driver, then FAT, ext2 and ISO 9660.",
+   "goal": "Find devices on PCI, read and write disk sectors, and open, read and write files on FAT and ext2 images through a VFS that your shell uses.",
+   "modules": [
+    {
+     "id": "t9m1",
+     "title": "Files before disks",
+     "summary": "A VFS over the initrd, and partition parsing tested before any disk driver exists.",
+     "lessons": [
+      {
+       "id": "t9m1l1",
+       "title": "A virtual filesystem layer",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "VFS",
+        "File Systems",
+        "Hierarchical VFS Theory"
+       ],
+       "further": [
+        "Symbolic link",
+        "File Management",
+        "FUSE"
+       ],
+       "why": "Programs should call open and read without caring whether files come from a tar archive, FAT or ext2. A VFS now means each later filesystem is just a plug-in.",
+       "objectives": [
+        "After this lesson you can design vnode and file-descriptor structures.",
+        "After this lesson you can mount a filesystem at a path.",
+        "After this lesson you can expose open, read, close and readdir as system calls."
+       ],
+       "checkpoint": "Mount the initrd at / through your VFS; a user program cat reads /etc/motd with open, read and close and prints it. Mount a small in-memory filesystem at /dev with a node that returns a fixed string when read, and cat that too.",
+       "prereq": [
+        "t8m2l1",
+        "t8m2l5"
+       ]
+      },
+      {
+       "id": "t9m1l2",
+       "title": "Partition tables: MBR and GPT",
+       "level": 2,
+       "minutes": 35,
+       "articles": [
+        "Partition Table",
+        "GPT"
+       ],
+       "further": [
+        "MBR (x86)",
+        "EFI System Partition",
+        "Volume Boot Record"
+       ],
+       "why": "Real disks hold several partitions. Your filesystem code needs to know where each one starts.",
+       "objectives": [
+        "After this lesson you can parse MBR partition entries and GPT headers and entries.",
+        "After this lesson you can detect a protective MBR."
+       ],
+       "checkpoint": "Create a disk image with two partitions on your host and load it as a Multiboot module, so you can test before any disk driver exists. Your kernel lists both partitions with start LBA and size, once from an MBR image and once from a GPT image.",
+       "prereq": [
+        "t8m2l1"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t9m2",
+     "title": "Finding and driving devices",
+     "summary": "PCI enumeration, a driver interface, and sectors from a real (emulated) disk.",
+     "lessons": [
+      {
+       "id": "t9m2l1",
+       "title": "PCI: enumerate the hardware",
+       "level": 2,
+       "minutes": 75,
+       "articles": [
+        "PCI"
+       ],
+       "further": [
+        "PCI Express",
+        "PCI Local Bus Signals",
+        "Where Can I Find Information About Ports"
+       ],
+       "why": "Almost every modern device sits on PCI. You cannot write a disk, network or USB driver without finding the device first.",
+       "objectives": [
+        "After this lesson you can scan PCI buses, devices and functions through configuration space.",
+        "After this lesson you can read BARs and the interrupt line for a device."
+       ],
+       "checkpoint": "Print every PCI device with vendor, device ID and class. Compare with QEMU's info pci.",
+       "prereq": [
+        "t4m1l2",
+        "t3m1l3"
+       ]
+      },
+      {
+       "id": "t9m2l2",
+       "title": "A driver model",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Device Management"
+       ],
+       "further": [
+        "Uniform Driver Interface",
+        "Common Driver Interface",
+        "UDI Driver Loading",
+        "Hardware Abstraction Layer"
+       ],
+       "why": "Without a common driver interface, every new device means changes all over the kernel.",
+       "objectives": [
+        "After this lesson you can define a driver interface that the kernel calls without knowing device details.",
+        "After this lesson you can match PCI devices to drivers by vendor, device or class."
+       ],
+       "checkpoint": "Your PCI scan hands each device to a registered driver if one matches and logs unclaimed devices.",
+       "prereq": [
+        "t9m2l1",
+        "t6m3l1"
+       ]
+      },
+      {
+       "id": "t9m2l3",
+       "title": "ATA PIO: your first disk driver",
+       "level": 2,
+       "minutes": 90,
+       "articles": [
+        "ATA PIO Mode",
+        "LBA"
+       ],
+       "further": [
+        "ATA Command Matrix",
+        "PCI IDE Controller",
+        "ATAPI",
+        "Disk access using the BIOS (INT 13h)",
+        "ATA read/write sectors"
+       ],
+       "why": "PIO mode is slow but simple, and works in every emulator. It gets you reading real sectors quickly.",
+       "objectives": [
+        "After this lesson you can detect drives with IDENTIFY and read and write sectors by LBA.",
+        "After this lesson you can poll status correctly and handle errors."
+       ],
+       "checkpoint": "Read sector 0 of a QEMU disk image and print the boot signature 0x55AA; write a sector, reboot, and read it back. Then list the partitions of the real disk with your partition code.",
+       "prereq": [
+        "t9m2l1",
+        "t9m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t9m3",
+     "title": "Filesystems",
+     "summary": "FAT in two sittings, then ext2 and ISO 9660.",
+     "lessons": [
+      {
+       "id": "t9m3l1",
+       "title": "FAT, part 1: read files",
+       "level": 2,
+       "minutes": 90,
+       "articles": [
+        "FAT"
+       ],
+       "further": [
+        "ExFAT",
+        "MTools",
+        "Fat imgen"
+       ],
+       "why": "FAT is simple, documented, and readable from every host OS, so you can check your results from outside.",
+       "objectives": [
+        "After this lesson you can parse the BPB and tell FAT12, FAT16 and FAT32 apart by cluster count.",
+        "After this lesson you can follow cluster chains and read directories, including long file names.",
+        "After this lesson you can expose FAT through your VFS so ls and cat work unchanged."
+       ],
+       "checkpoint": "Make a FAT image on your host with mkfs.fat and mtools, copy files into it, load the image as a Multiboot module (a RAM disk; ATA comes in part 2), and read the files from your OS through the VFS. Break it on purpose: in a copy of the image, make one cluster chain loop back on itself; your driver must detect the loop and return an error instead of hanging.",
+       "prereq": [
+        "t9m1l1",
+        "t9m1l2"
+       ]
+      },
+      {
+       "id": "t9m3l2",
+       "title": "FAT, part 2: write files safely",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "FAT",
+        "Journaling"
+       ],
+       "further": [
+        "ExFAT",
+        "File Systems"
+       ],
+       "why": "Reading a filesystem cannot damage it; writing can. Allocation, directory updates and the order of writes decide whether a crash leaves a usable disk. A complete, crash-safe FAT writer is a multi-week project: the time shown covers the reading and the first milestone, one file written, checked on the host and deleted.",
+       "objectives": [
+        "After this lesson you can allocate clusters and extend a cluster chain.",
+        "After this lesson you can create, grow and delete directory entries and keep both FAT copies in step.",
+        "After this lesson you can order writes so a crash leaves a recoverable state, and say what journaling would add."
+       ],
+       "checkpoint": "Write a 100 KB file from your OS through ATA, flush, then open the image on the host: the content must match and fsck.fat must report no errors. Delete the file and confirm its clusters are free again.",
+       "prereq": [
+        "t9m3l1",
+        "t9m2l3"
+       ]
+      },
+      {
+       "id": "t9m3l3",
+       "title": "ext2",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Ext2"
+       ],
+       "further": [
+        "Ext3",
+        "Ext4",
+        "Symbolic link"
+       ],
+       "why": "ext2 teaches inodes, block groups and Unix permissions, which map well onto a Unix-like VFS.",
+       "objectives": [
+        "After this lesson you can read the superblock, group descriptors and inodes.",
+        "After this lesson you can follow direct and indirect blocks to read a file."
+       ],
+       "checkpoint": "Create an ext2 image with mkfs.ext2, load it as a Multiboot module (a RAM disk, or through your ATA driver if you have it), and read a 1 MB file from it; its checksum must match the host's.",
+       "prereq": [
+        "t9m1l1",
+        "t9m1l2"
+       ]
+      },
+      {
+       "id": "t9m3l4",
+       "title": "Other filesystems, or your own",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "ISO 9660",
+        "LEAN"
+       ],
+       "further": [
+        "SFS",
+        "Roll Your Own Filesystem",
+        "BMFS",
+        "UDF",
+        "FUSE",
+        "El-Torito"
+       ],
+       "why": "Boot CDs use ISO 9660, and designing your own filesystem is a common goal. LEAN is a complete small filesystem spec: study a real design like it before inventing one.",
+       "objectives": [
+        "After this lesson you can read files from an ISO 9660 image.",
+        "After this lesson you can list the design questions any new filesystem must answer (allocation, directories, crash recovery) and say how LEAN answers each."
+       ],
+       "checkpoint": "Build a small ISO on the host with xorriso -as mkisofs (or genisoimage), load it as a second Multiboot module, and list and read its files through ISO 9660 via your VFS. If you want your own filesystem, write a one-page design that covers allocation and crash safety, and mark each place it differs from LEAN.",
+       "prereq": [
+        "t9m1l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t10",
+   "title": "Elective: Drivers and Buses",
+   "summary": "Modern storage controllers, USB and virtio: the drivers real and virtual machines need beyond the legacy devices of the core path.",
+   "goal": "Read sectors through ATAPI, AHCI or NVMe, enumerate USB devices and type through a USB keyboard, and use virtio devices in a VM.",
+   "modules": [
+    {
+     "id": "t10m1",
+     "title": "Modern storage",
+     "summary": "Controllers that use DMA and command queues instead of port I/O.",
+     "lessons": [
+      {
+       "id": "t10m1l1",
+       "title": "IDE controllers, ATAPI and bus-master DMA",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "PCI IDE Controller",
+        "ATAPI"
+       ],
+       "further": [
+        "ATA/ATAPI using DMA",
+        "Optical Drive",
+        "ATA Command Matrix",
+        "ISA DMA",
+        "Floppy Disk Controller"
+       ],
+       "why": "PIO keeps the CPU busy copying every byte. Bus-master DMA and ATAPI support get you speed and CD-ROM access.",
+       "objectives": [
+        "After this lesson you can find IDE channels from PCI BARs.",
+        "After this lesson you can send ATAPI packet commands to a CD drive.",
+        "After this lesson you can set up a PRD table for bus-master DMA."
+       ],
+       "checkpoint": "Read sector 16 of QEMU's CD-ROM through ATAPI (2048-byte sectors) and print the 'CD001' signature of the primary volume descriptor. Then read a disk sector with bus-master DMA and compare it with your PIO read.",
+       "prereq": [
+        "t9m2l3",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t10m1l2",
+       "title": "AHCI: SATA the modern way",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "AHCI",
+        "SATA"
+       ],
+       "further": [
+        "ATA Command Matrix",
+        "ATA/ATAPI using DMA",
+        "PCI Express"
+       ],
+       "why": "Real machines from the last decade use AHCI or NVMe, often with no legacy IDE mode. AHCI replaces port I/O with command lists in memory and DMA.",
+       "objectives": [
+        "After this lesson you can find the AHCI controller on PCI and map its ABAR with caching disabled.",
+        "After this lesson you can set up command lists, received-FIS areas and command tables for a port.",
+        "After this lesson you can issue READ DMA EXT and wait for its completion."
+       ],
+       "checkpoint": "Read the same sector through AHCI that you read through ATA PIO and compare the bytes (QEMU: -device ahci,id=ahci -device ide-hd,drive=d0,bus=ahci.0).",
+       "prereq": [
+        "t9m2l1",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t10m1l3",
+       "title": "NVMe: submission and completion queues",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "NVMe"
+       ],
+       "further": [
+        "PCI Express",
+        "PCI"
+       ],
+       "why": "NVMe drives talk to the CPU over PCI Express through pairs of queues in memory. The design is clean once you see one command go round.",
+       "objectives": [
+        "After this lesson you can map the controller's registers from BAR0, reset it and enable it.",
+        "After this lesson you can create admin and I/O submission and completion queue pairs.",
+        "After this lesson you can issue IDENTIFY and a read, and match completions to commands."
+       ],
+       "checkpoint": "With QEMU's -device nvme,serial=deadbeef,drive=nvm, print the controller's model number from IDENTIFY and read sector 0 of the namespace; it must match the image's first 512 bytes on the host.",
+       "prereq": [
+        "t9m2l1",
+        "t6m2l4"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t10m2",
+     "title": "USB",
+     "summary": "The architecture first, over two sittings, then a host controller and devices.",
+     "lessons": [
+      {
+       "id": "t10m2l1",
+       "title": "USB, part 1: architecture, descriptors and transfers",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Universal Serial Bus"
+       ],
+       "further": [
+        "USB Hubs",
+        "USB Flash Memory"
+       ],
+       "why": "USB is one of the largest subsystems in any OS, and this article runs past 130,000 characters. Part 1 covers the model: hosts, hubs, devices, endpoints, descriptors and transfer types.",
+       "objectives": [
+        "After this lesson you can explain hosts, hubs, devices, endpoints and the four transfer types.",
+        "After this lesson you can read device, configuration, interface and endpoint descriptors from a hex dump."
+       ],
+       "checkpoint": "Take the 18-byte device descriptor of any USB device (lsusb -v on a Linux host prints one) and decode every field by hand: vendor ID, product ID, class and endpoint 0's maximum packet size.",
+       "prereq": [
+        "t9m2l1"
+       ]
+      },
+      {
+       "id": "t10m2l2",
+       "title": "USB, part 2: enumeration and control transfers",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Universal Serial Bus"
+       ],
+       "further": [
+        "USB Hubs"
+       ],
+       "why": "Every USB device goes through the same enumeration sequence before it does anything useful. Getting it straight on paper first makes the controller code much easier to debug.",
+       "objectives": [
+        "After this lesson you can describe enumeration from port reset to SET_CONFIGURATION.",
+        "After this lesson you can explain what changes between low, full, high and super speed devices."
+       ],
+       "checkpoint": "Draw the enumeration sequence for a keyboard: every control request from reset to receiving the first key report.",
+       "prereq": [
+        "t10m2l1"
+       ]
+      },
+      {
+       "id": "t10m2l3",
+       "title": "USB host controllers",
+       "level": 4,
+       "minutes": 90,
+       "articles": [
+        "EXtensible Host Controller Interface",
+        "Universal Host Controller Interface"
+       ],
+       "further": [
+        "Open Host Controller Interface",
+        "Enhanced Host Controller Interface"
+       ],
+       "why": "The host controller is the PCI device your driver talks to. xHCI covers modern machines; UHCI is simpler to learn on.",
+       "objectives": [
+        "After this lesson you can find a USB controller on PCI and reset it.",
+        "After this lesson you can set up the schedule or rings needed to issue control transfers."
+       ],
+       "checkpoint": "With QEMU's -device qemu-xhci (or piix3-usb-uhci), detect a device attached to a root port and read its device descriptor.",
+       "prereq": [
+        "t10m2l2",
+        "t6m2l4",
+        "t5m1l1"
+       ]
+      },
+      {
+       "id": "t10m2l4",
+       "title": "USB devices: keyboards, mice and storage",
+       "level": 4,
+       "minutes": 75,
+       "articles": [
+        "USB Human Interface Devices"
+       ],
+       "further": [
+        "USB Mass Storage Class Devices",
+        "USB Hubs",
+        "SCSI"
+       ],
+       "why": "Many real machines have no PS/2 port. A USB keyboard driver may be the only way to type on them.",
+       "objectives": [
+        "After this lesson you can configure a HID device in boot protocol and poll its interrupt endpoint.",
+        "After this lesson you can explain how mass storage wraps SCSI commands in bulk transfers."
+       ],
+       "checkpoint": "Type into your shell using a QEMU usb-kbd device with the PS/2 keyboard driver turned off.",
+       "prereq": [
+        "t10m2l3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t10m3",
+     "title": "Virtual-machine devices",
+     "summary": "One queue design for network, block and more.",
+     "lessons": [
+      {
+       "id": "t10m3l1",
+       "title": "Virtio: fast devices for virtual machines",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Virtio"
+       ],
+       "further": [
+        "QEMU fw cfg",
+        "Ramfb",
+        "VirtualBox Guest Additions",
+        "VMware tools"
+       ],
+       "why": "Virtio devices are simpler and faster than emulated real hardware, and one queue design covers network, block and more.",
+       "objectives": [
+        "After this lesson you can find a virtio device on PCI and negotiate features.",
+        "After this lesson you can set up a virtqueue and exchange buffers with the host."
+       ],
+       "checkpoint": "Read a sector from a virtio-blk disk, or send a frame through virtio-net, and compare speed with your ATA or RTL8139 driver.",
+       "prereq": [
+        "t9m2l1",
+        "t6m2l4"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t11",
+   "title": "Elective: ACPI, APIC, Multicore and CPU Features",
+   "summary": "Firmware tables, the local APIC and I/O APIC, better timers, CPU feature detection with FPU/SSE state, and starting every core.",
+   "goal": "Find hardware through ACPI, route interrupts through the I/O APIC, schedule from a calibrated APIC timer, save FPU/SSE state, and run your kernel on four cores.",
+   "modules": [
+    {
+     "id": "t11m1",
+     "title": "ACPI",
+     "summary": "The tables that describe the machine, and what to do about AML.",
+     "lessons": [
+      {
+       "id": "t11m1l1",
+       "title": "ACPI tables",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "ACPI",
+        "RSDP",
+        "RSDT"
+       ],
+       "further": [
+        "XSDT",
+        "MADT",
+        "FADT",
+        "System Management BIOS",
+        "SRAT"
+       ],
+       "why": "ACPI tables tell you how many CPUs exist, where the interrupt controllers are, and how to power off. Modern machines need them.",
+       "objectives": [
+        "After this lesson you can find the RSDP, check its checksum and walk the RSDT or XSDT.",
+        "After this lesson you can locate the MADT and FADT."
+       ],
+       "checkpoint": "Print the signature, length and checksum status of every ACPI table in QEMU; confirm APIC (the MADT), FACP and HPET are present. Map each table before you read it: its address is physical.",
+       "prereq": [
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t11m1l2",
+       "title": "AML and choosing an ACPI library",
+       "level": 4,
+       "minutes": 50,
+       "articles": [
+        "UACPI",
+        "ACPICA",
+        "LAI"
+       ],
+       "further": [
+        "AML",
+        "DSDT",
+        "SSDT"
+       ],
+       "why": "Shutdown and many devices need the AML bytecode interpreted. Writing an interpreter is a large project; porting a library is usually the right call.",
+       "objectives": [
+        "After this lesson you can explain what the DSDT and AML do.",
+        "After this lesson you can compare uACPI, ACPICA and LAI by what your kernel must provide to them."
+       ],
+       "checkpoint": "List the host functions (memory mapping, locks, port I/O) your kernel must supply for the library you chose, and mark which you already have.",
+       "prereq": [
+        "t11m1l1",
+        "t6m3l1",
+        "t7m3l1"
+       ]
+      },
+      {
+       "id": "t11m1l3",
+       "title": "Shutdown and reboot",
+       "level": 2,
+       "minutes": 30,
+       "articles": [
+        "Shutdown",
+        "Reboot"
+       ],
+       "further": [
+        "APM",
+        "FADT"
+       ],
+       "why": "A clean shutdown and a reliable reboot are small features that make an OS feel finished.",
+       "objectives": [
+        "After this lesson you can reboot through the keyboard controller, the reset register or a triple fault.",
+        "After this lesson you can power off in QEMU and know what real hardware needs."
+       ],
+       "checkpoint": "Add shutdown and reboot shell commands that work in QEMU, and write down which of them need AML on real hardware.",
+       "prereq": [
+        "t11m1l1"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t11m2",
+     "title": "Interrupt controllers and timers",
+     "summary": "Leave the PIC behind once ACPI tells you where the APICs are.",
+     "lessons": [
+      {
+       "id": "t11m2l1",
+       "title": "Local APIC and I/O APIC",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "APIC",
+        "IOAPIC",
+        "MADT"
+       ],
+       "further": [
+        "Non Maskable Interrupt",
+        "8259 PIC",
+        "APIC Timer"
+       ],
+       "why": "The PIC cannot deliver interrupts to multiple CPUs. The APIC is needed for SMP and is standard on all current x86 machines.",
+       "objectives": [
+        "After this lesson you can read the MADT to find each local APIC, the I/O APIC address and the interrupt source overrides.",
+        "After this lesson you can map the APIC and I/O APIC registers uncached, disable the PIC and enable the local APIC.",
+        "After this lesson you can route the timer and keyboard IRQs through the I/O APIC, honouring the overrides (IRQ0 usually arrives on GSI 2)."
+       ],
+       "checkpoint": "Move your timer and keyboard interrupts from the PIC to the APIC and I/O APIC; both must still work. Predict, then observe: write down the redirection entries you expect, then compare with info lapic and info pic in the QEMU monitor.",
+       "prereq": [
+        "t11m1l1",
+        "t5m1l1",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t11m2l2",
+       "title": "Better timers: APIC timer and HPET",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "APIC Timer",
+        "HPET"
+       ],
+       "further": [
+        "ACPI Timer",
+        "TSC",
+        "Detecting CPU Speed",
+        "Timer Interrupt Sources"
+       ],
+       "why": "Each CPU needs its own timer for scheduling. You revisit timekeeping with per-CPU APIC timers calibrated against a known clock.",
+       "objectives": [
+        "After this lesson you can calibrate the APIC timer against the PIT or HPET.",
+        "After this lesson you can run the APIC timer in periodic or one-shot mode.",
+        "After this lesson you can read the HPET main counter."
+       ],
+       "checkpoint": "Drive your scheduler from a calibrated APIC timer at 1000 Hz; sleep_ms(1000) still measures one second against the host.",
+       "prereq": [
+        "t11m2l1",
+        "t5m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t11m3",
+     "title": "CPU features",
+     "summary": "Know what the CPU supports, and keep floating-point state per task.",
+     "lessons": [
+      {
+       "id": "t11m3l1",
+       "title": "Identify the CPU: CPUID and MSRs",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "CPUID",
+        "Model Specific Registers"
+       ],
+       "further": [
+        "CPU Bugs",
+        "MTRR",
+        "CPU Caches",
+        "Detecting CPU Speed",
+        "System Management Mode",
+        "VMX"
+       ],
+       "why": "Every optional feature, from the APIC to SSE to NX, has to be detected before it is used. Guessing works in QEMU and fails on the first real machine.",
+       "objectives": [
+        "After this lesson you can detect vendor, brand string and feature flags with CPUID, checking the maximum leaf first.",
+        "After this lesson you can read and write MSRs with rdmsr and wrmsr, guarded by the feature bits."
+       ],
+       "checkpoint": "Print the CPU vendor, brand string and whether it has the APIC, SSE2, NX and x2APIC. Compare the output under QEMU's -cpu qemu32 and -cpu max.",
+       "prereq": [
+        "t4m2l4"
+       ]
+      },
+      {
+       "id": "t11m3l2",
+       "title": "FPU and SSE: enable them and save their state on task switch",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "FPU",
+        "SSE"
+       ],
+       "further": [
+        "AVX2",
+        "Brendan's Multi-tasking Tutorial",
+        "Floating Point Number"
+       ],
+       "why": "User programs and compilers use floating-point and SSE registers. If the kernel does not enable them and save them on every task switch, two programs silently corrupt each other's maths. A 64-bit port needs this from day one, because the x86-64 ABI passes floats in SSE registers.",
+       "objectives": [
+        "After this lesson you can enable the x87 FPU and SSE through CR0 and CR4 (EM, MP, OSFXSR, OSXMMEXCPT).",
+        "After this lesson you can save and restore FPU/SSE state with fxsave and fxrstor in a 16-byte aligned area, eagerly or lazily with CR0.TS.",
+        "After this lesson you can explain why kernel code is usually built with -mgeneral-regs-only or -mno-sse."
+       ],
+       "checkpoint": "Run two ring-3 programs doing floating-point maths at the same time; both must get correct results. Then remove the save and restore, predict which results go wrong, and check.",
+       "prereq": [
+        "t11m3l1",
+        "t7m2l3",
+        "t8m2l3"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t11m4",
+     "title": "Multicore",
+     "summary": "What changes with more than one CPU, then starting them.",
+     "lessons": [
+      {
+       "id": "t11m4l1",
+       "title": "Multiprocessing: what changes with more than one CPU",
+       "level": 3,
+       "minutes": 40,
+       "articles": [
+        "Multiprocessing",
+        "Detecting CPU Topology (80x86)"
+       ],
+       "further": [
+        "Multiprocessor Scheduling",
+        "MP Specification",
+        "Multikernel",
+        "Memory barriers"
+       ],
+       "why": "Multiple cores turn every shortcut taken in single-CPU code (disabling interrupts as a lock, global \"current thread\") into a bug.",
+       "objectives": [
+        "After this lesson you can distinguish SMP, NUMA and hyperthreading.",
+        "After this lesson you can enumerate CPUs from the MADT and CPUID.",
+        "After this lesson you can list which kernel data must become per-CPU."
+       ],
+       "checkpoint": "Print the APIC ID and topology (package, core, thread) of each CPU under qemu -smp 4,cores=2,threads=2.",
+       "prereq": [
+        "t11m2l1",
+        "t7m3l2"
+       ]
+      },
+      {
+       "id": "t11m4l2",
+       "title": "Boot the other cores: INIT, SIPI and a trampoline",
+       "level": 4,
+       "minutes": 90,
+       "articles": [
+        "Symmetric Multiprocessing"
+       ],
+       "further": [
+        "MADT",
+        "Spinlock",
+        "Thread Local Storage",
+        "APIC",
+        "TLB"
+       ],
+       "why": "Starting application processors takes an INIT IPI, one or two startup IPIs and a real-mode trampoline below 1 MiB. The wiki marks this article as a stub, but its startup section is the part you need. After this, your locks face real parallelism. The INIT and SIPI IPI mechanics themselves are described in APIC.",
+       "objectives": [
+        "After this lesson you can write an AP trampoline that reaches your kernel.",
+        "After this lesson you can send INIT and SIPI IPIs.",
+        "After this lesson you can give each CPU its own stack, GDT, TSS and per-CPU data."
+       ],
+       "checkpoint": "With -smp 4, every CPU prints \"CPU n online\", runs scheduler threads, and the shared-counter lock test still gives the exact result.",
+       "prereq": [
+        "t11m4l1",
+        "t11m2l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t12",
+   "title": "Elective: Graphics, Sound and GUI",
+   "summary": "A linear framebuffer, drawing and fonts, a mouse, windows, VGA and GPU hardware, and sound from the PC speaker to HD Audio.",
+   "goal": "Run your console and shell on a framebuffer, drag windows with the mouse, and play audio through an emulated sound card.",
+   "modules": [
+    {
+     "id": "t12m1",
+     "title": "Pixels and text",
+     "summary": "From a framebuffer address to a working console in graphics mode.",
+     "lessons": [
+      {
+       "id": "t12m1l1",
+       "title": "Get a framebuffer",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "How do I set a graphics mode",
+        "VESA Video Modes"
+       ],
+       "further": [
+        "GOP",
+        "Bochs VBE Extensions",
+        "Ramfb",
+        "Video Signals And Timing",
+        "EDID"
+       ],
+       "why": "Setting a video mode is easiest before or during boot. Getting the framebuffer address, pitch and pixel format from the bootloader avoids most of the work.",
+       "objectives": [
+        "After this lesson you can get a linear framebuffer from GRUB, Limine, UEFI GOP or VBE.",
+        "After this lesson you can explain pitch versus width and common pixel formats.",
+        "After this lesson you can map the framebuffer's physical address into the kernel's address space."
+       ],
+       "checkpoint": "Map the framebuffer (the bootloader gives you its physical address), then fill the screen with a gradient at 1024x768 or higher. Use the pitch, not the width, for row offsets.",
+       "prereq": [
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t12m1l2",
+       "title": "Draw pixels, shapes and double buffers",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Drawing In a Linear Framebuffer",
+        "Double Buffering"
+       ],
+       "further": [
+        "Colour Quantisation",
+        "Dithering"
+       ],
+       "why": "Drawing straight to video memory flickers and is slow to read back. A back buffer fixes both.",
+       "objectives": [
+        "After this lesson you can draw pixels, lines and filled rectangles efficiently.",
+        "After this lesson you can render into a back buffer and copy only changed regions."
+       ],
+       "checkpoint": "Animate a bouncing rectangle with no flicker, copying only the regions that changed each frame.",
+       "prereq": [
+        "t12m1l1",
+        "t6m3l1"
+       ]
+      },
+      {
+       "id": "t12m1l3",
+       "title": "Fonts on a framebuffer",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "PC Screen Font",
+        "Scalable Screen Font"
+       ],
+       "further": [
+        "VGA Fonts",
+        "Simple Scalable Fonts",
+        "TrueType Fonts"
+       ],
+       "why": "Once in graphics mode, the VGA text buffer is gone. You need to draw text yourself to keep your console and kprintf.",
+       "objectives": [
+        "After this lesson you can load a PSF font and render glyphs.",
+        "After this lesson you can build a framebuffer console that scrolls."
+       ],
+       "checkpoint": "Move your kernel console onto the framebuffer in a PSF font: kprintf output, scrolling and the shell all work in graphics mode, and the make test serial log is unchanged.",
+       "prereq": [
+        "t12m1l2",
+        "t8m3l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t12m2",
+     "title": "Interface",
+     "summary": "A pointer, windows, and the hardware underneath.",
+     "lessons": [
+      {
+       "id": "t12m2l1",
+       "title": "Mouse input",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "PS/2 Mouse"
+       ],
+       "further": [
+        "Mouse Input",
+        "USB Human Interface Devices"
+       ],
+       "why": "A graphical interface needs a pointer. The PS/2 mouse shares the controller you already use for the keyboard.",
+       "objectives": [
+        "After this lesson you can enable the auxiliary PS/2 device and decode movement packets.",
+        "After this lesson you can draw a cursor that follows the mouse without leaving trails."
+       ],
+       "checkpoint": "Move a cursor around the screen with the mouse and report button clicks over serial.",
+       "prereq": [
+        "t12m1l1",
+        "t5m2l2"
+       ]
+      },
+      {
+       "id": "t12m2l2",
+       "title": "Windows and compositing",
+       "level": 3,
+       "minutes": 120,
+       "articles": [
+        "GUI",
+        "Compositing"
+       ],
+       "further": [
+        "Loading Icons",
+        "Graphics stack",
+        "James T. Klik",
+        "User Interface"
+       ],
+       "why": "A windowing system is a big project. Start with clear ownership: who draws, who composites, and how events get to applications. Treat it as the start of a multi-week project: the time shown covers the reading and a first two-window compositor.",
+       "objectives": [
+        "After this lesson you can design a compositor that combines window buffers into the screen.",
+        "After this lesson you can route mouse and keyboard events to the focused window."
+       ],
+       "checkpoint": "Show two overlapping windows you can drag with the mouse; only damaged regions are redrawn.",
+       "prereq": [
+        "t12m2l1",
+        "t12m1l2"
+       ]
+      },
+      {
+       "id": "t12m2l3",
+       "title": "Deep dive: VGA hardware",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "VGA Hardware"
+       ],
+       "further": [
+        "VGA Resources",
+        "VGA Fonts",
+        "Text Mode Cursor",
+        "Detecting Colour and Monochrome Monitors"
+       ],
+       "why": "Programming VGA registers directly explains text mode, planar modes and why old graphics code looks the way it does. Optional, but useful for fallback modes.",
+       "objectives": [
+        "After this lesson you can explain the VGA register groups and the memory planes.",
+        "After this lesson you can switch to mode 13h by writing registers, without the BIOS."
+       ],
+       "checkpoint": "From protected mode, set 320x200x256 by programming registers and draw a palette test.",
+       "prereq": [
+        "t3m1l3",
+        "t3m2l3"
+       ]
+      },
+      {
+       "id": "t12m2l4",
+       "title": "Native GPU drivers",
+       "level": 4,
+       "minutes": 75,
+       "articles": [
+        "VMWare SVGA-II",
+        "Native Intel graphics"
+       ],
+       "further": [
+        "Bochs VBE Extensions",
+        "Intel HD Graphics",
+        "Accelerated Graphic Cards",
+        "AMD Atombios",
+        "3D Renderer Basics"
+       ],
+       "why": "Mode setting and acceleration on real GPUs is master-level work. Read this to judge the scope; a VM's SVGA device is an easier first target.",
+       "objectives": [
+        "After this lesson you can explain what a native driver must do that a bootloader framebuffer does not.",
+        "After this lesson you can choose a first target: VMware SVGA-II, Bochs VBE, or Intel graphics."
+       ],
+       "checkpoint": "Change resolution at runtime with Bochs VBE or VMware SVGA-II in an emulator, without rebooting.",
+       "prereq": [
+        "t12m1l1",
+        "t9m2l1"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t12m3",
+     "title": "Sound",
+     "summary": "A beep with the PIT, then PCM streams with DMA.",
+     "lessons": [
+      {
+       "id": "t12m3l1",
+       "title": "Sound basics and the PC speaker",
+       "level": 2,
+       "minutes": 35,
+       "articles": [
+        "Sound",
+        "PC Speaker"
+       ],
+       "further": [
+        "Programmable Interval Timer",
+        "Sound Blaster 16"
+       ],
+       "why": "The PC speaker needs only the PIT, so it is a quick first sound before you tackle a real audio device.",
+       "objectives": [
+        "After this lesson you can drive the PC speaker at a chosen frequency.",
+        "After this lesson you can explain sample rate, bit depth and DMA buffers for real sound cards."
+       ],
+       "checkpoint": "Play a short tune through the PC speaker in QEMU (-audiodev with -machine pcspk-audiodev).",
+       "prereq": [
+        "t5m1l2"
+       ]
+      },
+      {
+       "id": "t12m3l2",
+       "title": "PCM audio with AC97",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "AC97"
+       ],
+       "further": [
+        "Sound Blaster 16",
+        "ISA DMA",
+        "Ensoniq AudioPCI"
+       ],
+       "why": "Real audio means streaming sample buffers with DMA and refilling them on interrupt. AC97 is simple and emulated by QEMU and VirtualBox.",
+       "objectives": [
+        "After this lesson you can find the AC97 controller on PCI and reset the codec.",
+        "After this lesson you can build a buffer descriptor list and refill buffers on interrupt.",
+        "After this lesson you can parse a WAV header and convert its format if needed."
+       ],
+       "checkpoint": "Play a WAV file from your filesystem through QEMU's -device AC97 without gaps.",
+       "prereq": [
+        "t12m3l1",
+        "t9m2l1",
+        "t6m2l4",
+        "t9m1l1"
+       ]
+      },
+      {
+       "id": "t12m3l3",
+       "title": "Intel High Definition Audio",
+       "level": 4,
+       "minutes": 90,
+       "articles": [
+        "Intel High Definition Audio"
+       ],
+       "further": [
+        "Sound"
+       ],
+       "why": "HD Audio is what real machines have. The controller is a DMA engine, and the work is in talking to codecs and finding a path from a converter to a speaker.",
+       "objectives": [
+        "After this lesson you can set up the CORB and RIRB rings and send verbs to a codec.",
+        "After this lesson you can walk the codec's widget graph from a DAC to an output pin.",
+        "After this lesson you can stream PCM through a buffer descriptor list."
+       ],
+       "checkpoint": "Under QEMU's -device intel-hda -device hda-duplex, list every widget of the codec with its type, then play the same WAV file as in the AC97 lesson.",
+       "prereq": [
+        "t12m3l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t13",
+   "title": "Elective: Networking",
+   "summary": "A layered stack design, a NIC driver, ARP, IP and ICMP, real-hardware NICs and the scope of TLS.",
+   "goal": "Send and receive Ethernet frames, answer a ping from the host, and judge what a TLS client would still need.",
+   "modules": [
+    {
+     "id": "t13m1",
+     "title": "A minimal stack",
+     "summary": "Design, driver, and the first protocol that proves it all works.",
+     "lessons": [
+      {
+       "id": "t13m1l1",
+       "title": "Network stack design",
+       "level": 3,
+       "minutes": 50,
+       "articles": [
+        "Network Stack"
+       ],
+       "further": [
+        "Ethernet devices",
+        "Socket",
+        "Select",
+        "Communications"
+       ],
+       "why": "A network stack is layered. Designing the buffers and layers before writing a driver avoids a rewrite.",
+       "objectives": [
+        "After this lesson you can describe the path of a packet from NIC to socket.",
+        "After this lesson you can design packet buffers that move between layers without copying."
+       ],
+       "checkpoint": "Write a one-page design: driver interface, packet buffer, Ethernet, ARP, IPv4, ICMP, UDP, with what each layer passes on.",
+       "prereq": [
+        "t9m2l1",
+        "t7m3l1",
+        "t6m3l1"
+       ]
+      },
+      {
+       "id": "t13m1l2",
+       "title": "A network card driver",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "RTL8139",
+        "Intel 8254x"
+       ],
+       "further": [
+        "Ne2000",
+        "AMD PCNET",
+        "Virtio",
+        "Ethernet devices"
+       ],
+       "why": "QEMU emulates the RTL8139 and Intel e1000. A driver for either gets packets moving.",
+       "objectives": [
+        "After this lesson you can initialise the NIC, set up receive and transmit buffers and read the MAC address.",
+        "After this lesson you can send and receive raw Ethernet frames using interrupts."
+       ],
+       "checkpoint": "Send a broadcast frame from your OS and capture it on the host with QEMU's -object filter-dump and Wireshark.",
+       "prereq": [
+        "t13m1l1",
+        "t5m1l1",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t13m1l3",
+       "title": "ARP, IP and ICMP: answer a ping",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Address Resolution Protocol",
+        "Internet Control Message Protocol"
+       ],
+       "further": [
+        "Universal Plug-n-Play",
+        "Socket",
+        "Diskless Booting"
+       ],
+       "why": "Replying to ping proves every layer of a minimal stack works.",
+       "objectives": [
+        "After this lesson you can answer ARP requests and keep an ARP cache.",
+        "After this lesson you can parse and build IPv4 and ICMP echo packets with correct checksums."
+       ],
+       "checkpoint": "With -netdev tap (or bridge), ping your OS's IP from the host and get replies. With -netdev user, which cannot deliver host-to-guest ICMP, send an ARP request for 10.0.2.2, then an ICMP echo to it, and print the reply's sequence number and round-trip ticks.",
+       "prereq": [
+        "t13m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t13m2",
+     "title": "Further out",
+     "summary": "Real NICs and secure connections.",
+     "lessons": [
+      {
+       "id": "t13m2l1",
+       "title": "Network cards on real hardware: RTL8169 and Intel i217",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "RTL8169",
+        "Intel Ethernet i217"
+       ],
+       "further": [
+        "Intel Dual Band Wireless",
+        "PCI Express",
+        "Ethernet devices",
+        "Problems Booting From USB Flash",
+        "PXE"
+       ],
+       "why": "QEMU's RTL8139 and e1000 are rare in real machines. The RTL8169 family and Intel's i217 are common in desktops and laptops, and their descriptor rings follow the pattern you already know.",
+       "objectives": [
+        "After this lesson you can compare the descriptor ring designs of the RTL8169 and i217 with the driver you wrote.",
+        "After this lesson you can plan a driver for the NIC in a machine you own, starting from its PCI IDs."
+       ],
+       "checkpoint": "Find your own machine's NIC vendor and device ID (lspci -nn on Linux), decide which article applies, and list how its receive and transmit setup differs from your QEMU driver. If you have the hardware, boot from USB and log a link-up interrupt.",
+       "prereq": [
+        "t13m1l2"
+       ]
+      },
+      {
+       "id": "t13m2l2",
+       "title": "Secure connections: TLS",
+       "level": 4,
+       "minutes": 90,
+       "articles": [
+        "SSL/TLS",
+        "TLS Handshake",
+        "Random Number Generator"
+       ],
+       "further": [
+        "TLS Encryption",
+        "CRC32"
+       ],
+       "why": "Most of today's internet needs TLS. It is a large, security-critical project; read it to understand the scope before deciding to port a library instead.",
+       "objectives": [
+        "After this lesson you can describe the TLS 1.3 handshake step by step.",
+        "After this lesson you can list what your OS needs first: TCP, a good random source, and time.",
+        "After this lesson you can build an entropy pool from RDRAND or TSC jitter and verify a CRC32 routine against a known-good implementation."
+       ],
+       "checkpoint": "Implement the entropy source described in Random Number Generator: RDRAND if CPUID reports it, otherwise TSC jitter mixed into a pool. Add a CRC32 routine and check it against the host's output on a 1 MB file. Then write down every other prerequisite your OS is missing for a TLS client, and record the write-or-port decision in DECISIONS.md.",
+       "prereq": [
+        "t13m1l3"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t14",
+   "title": "Elective: Porting Software and Self-Hosting",
+   "summary": "A toolchain that knows your OS, a ported libc, C++ and Rust support, real programs, and the road to compiling your OS on itself.",
+   "goal": "Build programs with your own OS-specific GCC, port a libc and real software, and reach the first self-hosting milestone.",
+   "modules": [
+    {
+     "id": "t14m1",
+     "title": "Toolchain and libraries",
+     "summary": "Your libc goes into the sysroot first, then a compiler that targets your OS.",
+     "lessons": [
+      {
+       "id": "t14m1l1",
+       "title": "A toolchain that targets your OS",
+       "level": 3,
+       "minutes": 120,
+       "articles": [
+        "OS Specific Toolchain",
+        "Hosted GCC Cross-Compiler"
+       ],
+       "further": [
+        "Libsupcxx",
+        "GCC and Libc++"
+       ],
+       "why": "A compiler that knows your OS (i686-myos-gcc) builds user programs without hand-written flags and is the first step to porting software. Your libc from the core path must be installed in the sysroot first: libgcc needs at least its headers.",
+       "objectives": [
+        "After this lesson you can add your OS as a target to binutils and GCC.",
+        "After this lesson you can build user programs with your OS's own triplet."
+       ],
+       "checkpoint": "Build a hello-world user program with your own i686-myos-gcc, using the libc headers and crt0 already in your sysroot, and run it on your OS.",
+       "prereq": [
+        "t8m3l1"
+       ]
+      },
+      {
+       "id": "t14m1l2",
+       "title": "Port Newlib",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Porting Newlib"
+       ],
+       "further": [
+        "Creating a C Library",
+        "C Library"
+       ],
+       "why": "A ported libc gives you most of the C standard library at once, so more software builds without changes.",
+       "objectives": [
+        "After this lesson you can add your OS to Newlib and write the system call glue it needs.",
+        "After this lesson you can build user programs against Newlib with your OS toolchain."
+       ],
+       "checkpoint": "Run a program using fopen, fprintf and qsort from Newlib on your OS.",
+       "prereq": [
+        "t14m1l1",
+        "t9m1l1"
+       ]
+      },
+      {
+       "id": "t14m1l3",
+       "title": "C++ in the kernel and in user space",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "C++",
+        "Libsupcxx",
+        "C++ Exception Support"
+       ],
+       "further": [
+        "Calling Global Constructors",
+        "GCC and Libc++",
+        "C++ to ASM linkage in GCC"
+       ],
+       "why": "C++ works in a kernel once you provide what its runtime expects: global constructors, new and delete, and either no exceptions and RTTI or the support code for them.",
+       "objectives": [
+        "After this lesson you can list the runtime support C++ needs: constructors, operator new and delete, __cxa_pure_virtual and guard functions.",
+        "After this lesson you can build kernel C++ with -fno-exceptions -fno-rtti and say what you give up.",
+        "After this lesson you can decide whether user programs get exceptions, and what porting libsupc++ involves."
+       ],
+       "checkpoint": "Add one C++ file to your kernel with a global object whose constructor prints a line; it must print before kernel_main's first message. A pure virtual call must reach your panic, not a random address.",
+       "prereq": [
+        "t3m2l1",
+        "t6m3l1"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t14m2",
+     "title": "Real programs",
+     "summary": "Port software, then aim at self-hosting.",
+     "lessons": [
+      {
+       "id": "t14m2l1",
+       "title": "Port existing software",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "Cross-Porting Software",
+        "Building Upon Existing Software"
+       ],
+       "further": [
+        "Porting Newlib",
+        "Library Calls",
+        "Licensing"
+       ],
+       "why": "Porting real programs shows exactly which system calls and libc functions are missing, faster than any checklist.",
+       "objectives": [
+        "After this lesson you can configure an autotools project for your OS target with a sysroot.",
+        "After this lesson you can list missing functions from link errors and implement or stub them."
+       ],
+       "checkpoint": "Cross-compile one small real program (a text editor or a scripting language) for your OS and run it.",
+       "prereq": [
+        "t14m1l2"
+       ]
+      },
+      {
+       "id": "t14m2l2",
+       "title": "Porting the Rust standard library",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Porting Rust standard library"
+       ],
+       "further": [
+        "Rust",
+        "Target Triplet"
+       ],
+       "why": "Rust programs expect std. Porting it to your OS gives you a second language for user space and shows exactly which system interfaces a modern runtime calls.",
+       "objectives": [
+        "After this lesson you can explain how Rust's std is organised per target and what a new OS target must supply.",
+        "After this lesson you can add a target for your OS and build std on top of your libc."
+       ],
+       "checkpoint": "Build a Rust hello-world that uses std for your OS target and run it on your OS.",
+       "prereq": [
+        "t14m1l2"
+       ]
+      },
+      {
+       "id": "t14m2l3",
+       "title": "Toward self-hosting: GCC and Python on your OS",
+       "level": 4,
+       "minutes": 120,
+       "articles": [
+        "Porting GCC to your OS",
+        "Porting Python"
+       ],
+       "further": [
+        "GCC Canadian Cross",
+        "OS Specific Toolchain",
+        "Hosted GCC Cross-Compiler",
+        "Building GCC"
+       ],
+       "why": "Compiling your OS under your OS is the traditional finish line. It is a multi-week project: the time shown covers the reading and the first milestone, binutils running on your OS.",
+       "objectives": [
+        "After this lesson you can list the OS features a compiler needs: spawn or fork/exec, files, pipes and enough memory.",
+        "After this lesson you can build a program for your OS as a Canadian cross.",
+        "After this lesson you can plan the milestones from binutils to a native GCC to rebuilding your own kernel."
+       ],
+       "checkpoint": "First milestone: build binutils as a Canadian cross for your OS and run as --version and ld --version on it. Write the remaining milestones (native GCC, Python, rebuilding your kernel) in DECISIONS.md with the system calls each one still needs.",
+       "prereq": [
+        "t14m2l1",
+        "t9m3l2"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t15",
+   "title": "Elective: Beyond i686: 64-bit, UEFI, ARM and RISC-V",
+   "summary": "A planned port of your kernel to x86-64, booting through your own UEFI loader, and second architectures.",
+   "goal": "Run your kernel's test suite on x86-64, boot a kernel through your own UEFI loader, and print from kernels on AArch64 and RISC-V.",
+   "modules": [
+    {
+     "id": "t15m1",
+     "title": "Port to x86-64",
+     "summary": "Move the kernel you already have to long mode as a planned port, with the test suite as your guide.",
+     "lessons": [
+      {
+       "id": "t15m1l1",
+       "title": "x86-64 and long mode",
+       "level": 3,
+       "minutes": 45,
+       "articles": [
+        "X86-64",
+        "CPU Registers x86-64"
+       ],
+       "further": [
+        "EM64T",
+        "X86-64 Instruction Encoding",
+        "Entering Long Mode Directly",
+        "System V ABI"
+       ],
+       "why": "Nearly all current PCs run 64-bit kernels. Long mode changes registers, paging depth, the calling convention and the system call path. Treat what follows as a port of your kernel over several sittings, not a single switch.",
+       "objectives": [
+        "After this lesson you can list what changes in long mode compared to protected mode.",
+        "After this lesson you can describe 4-level paging and canonical addresses.",
+        "After this lesson you can explain the x86-64 System V calling convention."
+       ],
+       "checkpoint": "Write the steps (CPUID check, PAE, page tables, EFER.LME, PG, far jump) from protected mode to long mode, with the register and bit for each.",
+       "prereq": [
+        "t6m2l3",
+        "t4m2l4"
+       ]
+      },
+      {
+       "id": "t15m1l2",
+       "title": "Optional route: set up long mode by hand",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Setting Up Long Mode"
+       ],
+       "further": [
+        "Creating a 64-bit kernel",
+        "Creating a 64-bit kernel using a separate loader",
+        "Libgcc without red zone",
+        "QEMU and GDB in long mode"
+       ],
+       "why": "Doing the switch yourself once makes every 64-bit bootloader's handover understandable.",
+       "objectives": [
+        "After this lesson you can build identity-mapped 4-level page tables in assembly.",
+        "After this lesson you can enable long mode and load a 64-bit GDT.",
+        "After this lesson you can call 64-bit C code compiled with -mno-red-zone."
+       ],
+       "checkpoint": "From your Multiboot entry, switch to long mode and call a 64-bit kernel_main that prints \"64-bit\" on qemu-system-x86_64.",
+       "prereq": [
+        "t15m1l1"
+       ]
+      },
+      {
+       "id": "t15m1l3",
+       "title": "A 64-bit kernel with Limine",
+       "level": 2,
+       "minutes": 60,
+       "articles": [
+        "Limine Bare Bones",
+        "Limine"
+       ],
+       "further": [
+        "BOOTBOOT",
+        "Building libgcc for mcmodel=kernel",
+        "Higher Half Kernel"
+       ],
+       "why": "Limine hands you long mode, a higher-half mapping, a framebuffer and a memory map. It is a practical base for a 64-bit port of your kernel. If you did the previous lesson you can keep your own entry code instead; the rest of this module works with either.",
+       "objectives": [
+        "After this lesson you can build a kernel for the Limine boot protocol.",
+        "After this lesson you can use Limine requests for the memory map and framebuffer.",
+        "After this lesson you can link with -mcmodel=kernel in the top 2 GiB."
+       ],
+       "checkpoint": "Boot your kernel through Limine on qemu-system-x86_64, fill the framebuffer with a colour, and print the memory map over serial.",
+       "prereq": [
+        "t15m1l1"
+       ]
+      },
+      {
+       "id": "t15m1l4",
+       "title": "Port the kernel: compiler flags, IDT, ISR stubs and TSS",
+       "level": 3,
+       "minutes": 120,
+       "articles": [
+        "Creating a 64-bit kernel",
+        "Libgcc without red zone",
+        "Building libgcc for mcmodel=kernel"
+       ],
+       "further": [
+        "X86-64 Instruction Encoding",
+        "System V ABI",
+        "Task State Segment",
+        "CPU Registers x86-64"
+       ],
+       "why": "Most 32-bit C compiles unchanged, but the parts that touch the CPU do not: interrupt gates are 16 bytes, there is no pusha, iret becomes iretq, the TSS holds stack pointers and the IST, and kernel code must not use the red zone.",
+       "objectives": [
+        "After this lesson you can build the kernel with -mno-red-zone, -mcmodel=kernel and a libgcc built to match.",
+        "After this lesson you can write 64-bit IDT gates and ISR stubs that push registers one by one and return with iretq.",
+        "After this lesson you can set up a 64-bit TSS with an IST stack for double faults."
+       ],
+       "checkpoint": "Your make test suite passes on qemu-system-x86_64: the divide-by-zero, ud2, SSP and kprintf tests print the same results as the 32-bit build. Set IST1 on vector 8, mark the #GP gate not present, and execute an instruction that raises #GP (load a bad selector into DS): the #DF handler must run and report an RSP inside the IST1 stack instead of the machine triple-faulting.",
+       "prereq": [
+        "t15m1l3",
+        "t4m3l3"
+       ]
+      },
+      {
+       "id": "t15m1l5",
+       "title": "4-level paging, the higher half and debugging in long mode",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Paging",
+        "QEMU and GDB in long mode"
+       ],
+       "further": [
+        "Page Tables",
+        "TLB",
+        "Setting Up Paging With PAE"
+       ],
+       "why": "Your map_page and frame allocator assumed two levels. Long mode uses four, with canonical addresses and the NX bit, and Limine hands you a higher-half direct map to build on. GDB also needs a workaround when the CPU changes mode under it. In Paging, read §64-Bit Paging and §Page Map Table Entries this time.",
+       "objectives": [
+        "After this lesson you can walk and edit PML4, PDPT, PD and PT entries, including the NX bit.",
+        "After this lesson you can reach physical memory through the bootloader's higher-half direct map.",
+        "After this lesson you can debug a long-mode kernel in GDB despite the mode switch."
+       ],
+       "checkpoint": "Your map/unmap harness tests pass on x86-64: map a frame at a free kernel address in the top half, write, unmap, and get a page fault with the right CR2. Break in the page-fault handler with GDB and print the faulting address. Then allocate a kernel stack with an unmapped guard page below it, overflow it, and confirm the #DF handler runs on IST1.",
+       "prereq": [
+        "t15m1l4",
+        "t6m2l4"
+       ]
+      },
+      {
+       "id": "t15m1l6",
+       "title": "SYSCALL, SWAPGS and the 64-bit user boundary",
+       "level": 4,
+       "minutes": 45,
+       "articles": [
+        "SYSENTER",
+        "SWAPGS"
+       ],
+       "further": [
+        "Model Specific Registers",
+        "Task State Segment",
+        "Thread Local Storage"
+       ],
+       "why": "In 64-bit kernels the fast system call path and per-CPU data via GS replace int 0x80 and global variables. Errors here are security holes.",
+       "objectives": [
+        "After this lesson you can configure STAR, LSTAR and SFMASK for SYSCALL.",
+        "After this lesson you can use SWAPGS to reach per-CPU kernel data.",
+        "After this lesson you can return to user mode with SYSRET safely."
+       ],
+       "checkpoint": "A 64-bit user program calls write and exit through SYSCALL; GS-based per-CPU data holds the kernel stack pointer.",
+       "prereq": [
+        "t15m1l5",
+        "t8m1l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t15m2",
+     "title": "UEFI",
+     "summary": "What UEFI changes, a UEFI application, and your own loader.",
+     "lessons": [
+      {
+       "id": "t15m2l1",
+       "title": "What UEFI changes",
+       "level": 2,
+       "minutes": 50,
+       "articles": [
+        "UEFI"
+       ],
+       "further": [
+        "EFI System Partition",
+        "GPT",
+        "OVMF",
+        "Broken UEFI implementations"
+       ],
+       "why": "New PCs boot UEFI, not BIOS. UEFI gives you a richer environment before your kernel and different rules after it.",
+       "objectives": [
+        "After this lesson you can explain boot services versus runtime services.",
+        "After this lesson you can describe the EFI System Partition and GPT.",
+        "After this lesson you can run QEMU with OVMF firmware."
+       ],
+       "checkpoint": "Boot QEMU with OVMF and reach the UEFI shell; list the mapped filesystems.",
+       "prereq": [
+        "t3m1l2"
+       ]
+      },
+      {
+       "id": "t15m2l2",
+       "title": "A UEFI application",
+       "level": 3,
+       "minutes": 60,
+       "articles": [
+        "UEFI App Bare Bones",
+        "GNU-EFI"
+       ],
+       "further": [
+        "POSIX-UEFI",
+        "EDK2",
+        "Debugging UEFI applications with GDB",
+        "Uefi.inc"
+       ],
+       "why": "A UEFI application is the modern equivalent of the boot sector: the first code of yours the firmware runs.",
+       "objectives": [
+        "After this lesson you can build a PE32+ UEFI application.",
+        "After this lesson you can print through the simple text output protocol.",
+        "After this lesson you can place BOOTX64.EFI on an ESP image.",
+        "After this lesson you can set up a PE32+ toolchain (MinGW-w64, or clang targeting x86_64-windows), or use GNU-EFI's ELF-to-PE conversion."
+       ],
+       "checkpoint": "OVMF in QEMU runs your BOOTX64.EFI automatically and prints Hello from UEFI.",
+       "prereq": [
+        "t15m2l1"
+       ]
+      },
+      {
+       "id": "t15m2l3",
+       "title": "From UEFI to your kernel",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Loading files under UEFI",
+        "GOP"
+       ],
+       "further": [
+        "Reading sectors under UEFI",
+        "Using UEFI Runtime Services in your Kernel",
+        "Porting to UEFI",
+        "UEFI NVRAM"
+       ],
+       "why": "Your own UEFI loader closes the loop on booting: firmware, loader, kernel, all code you understand.",
+       "objectives": [
+        "After this lesson you can read a kernel file from the ESP.",
+        "After this lesson you can set a GOP video mode and record the framebuffer.",
+        "After this lesson you can get the memory map, exit boot services and jump to the kernel."
+       ],
+       "checkpoint": "Your UEFI loader loads kernel.elf from the ESP, passes framebuffer and memory map, calls ExitBootServices, and your kernel draws to the screen.",
+       "prereq": [
+        "t15m2l2",
+        "t8m2l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t15m3",
+     "title": "Other architectures",
+     "summary": "Separate the architecture code, then boot on ARM and RISC-V.",
+     "lessons": [
+      {
+       "id": "t15m3l1",
+       "title": "Write portable kernel code",
+       "level": 3,
+       "minutes": 40,
+       "articles": [
+        "Portability",
+        "Historical Notes on CISC and RISC"
+       ],
+       "further": [
+        "Endianness",
+        "Devicetree",
+        "ARM TargetingMultipleDevices",
+        "Instruction Set Architecture",
+        "Memory mapped registers in C/C++"
+       ],
+       "why": "Separating architecture code early makes a second port a matter of weeks instead of a rewrite.",
+       "objectives": [
+        "After this lesson you can split your kernel into architecture-specific and generic directories.",
+        "After this lesson you can handle endianness and memory-mapped registers portably."
+       ],
+       "checkpoint": "Move every inline assembly and port I/O call in your kernel behind an arch/ interface, and confirm the x86 build still boots.",
+       "prereq": [
+        "t6m3l2"
+       ]
+      },
+      {
+       "id": "t15m3l2",
+       "title": "ARM and AArch64",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "ARM Overview",
+        "QEMU AArch64 Virt Bare Bones"
+       ],
+       "further": [
+        "ARMv7-A Bare Bones",
+        "ARM Paging",
+        "ARMv7 Generic Timers",
+        "AArch64"
+       ],
+       "why": "ARM runs phones, single-board computers and new laptops. Its exception levels, interrupt controller and boot process differ from x86 in important ways.",
+       "objectives": [
+        "After this lesson you can explain ARM exception levels and how they compare to x86 rings.",
+        "After this lesson you can boot a minimal AArch64 kernel on QEMU's virt machine and print to its UART."
+       ],
+       "checkpoint": "Print 'Hello' over the PL011 UART on qemu-system-aarch64 -M virt, then read the current exception level and print it.",
+       "prereq": [
+        "t15m3l1"
+       ]
+      },
+      {
+       "id": "t15m3l3",
+       "title": "AArch64 exceptions, timer and interrupt controller",
+       "level": 3,
+       "minutes": 75,
+       "articles": [
+        "Generic Interrupt Controller"
+       ],
+       "further": [
+        "ARMv7 Generic Timers",
+        "Generic Interrupt Controller versions 3 and 4",
+        "ARM Paging",
+        "ARMv7 Common Memory System Architecture",
+        "ARM Overview"
+       ],
+       "why": "On ARM the vector table, the interrupt controller and the timer all differ from x86. Getting a timer tick and a readable exception report is the same first milestone you reached on x86, for the same reasons. The exception vector table at VBAR_EL1 is not covered by the wiki: use the Arm Architecture Reference Manual (D1.10, exception vectors).",
+       "objectives": [
+        "After this lesson you can install an exception vector table at VBAR_EL1 and report synchronous exceptions.",
+        "After this lesson you can enable the GIC distributor and CPU interface and take the generic timer interrupt."
+       ],
+       "checkpoint": "On qemu-system-aarch64 -M virt, a timer interrupt through the GIC prints a tick every second, and a deliberate undefined instruction prints ESR_EL1 and ELR_EL1.",
+       "prereq": [
+        "t15m3l2"
+       ]
+      },
+      {
+       "id": "t15m3l4",
+       "title": "Real hardware: Raspberry Pi",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Raspberry Pi Bare Bones",
+        "Raspberry Pi"
+       ],
+       "further": [
+        "Booting Raspberry Pi 3",
+        "Detecting Raspberry Pi Board",
+        "Raspberry Pi 4",
+        "Raspberry Pi Bare Bones Rust",
+        "BOOTBOOT"
+       ],
+       "why": "A Raspberry Pi is cheap, common, and a good first real-hardware target, with a serial console for debugging.",
+       "objectives": [
+        "After this lesson you can build a kernel image the Pi firmware will boot.",
+        "After this lesson you can use a USB-serial adapter to see kernel output on real hardware."
+       ],
+       "checkpoint": "Boot your kernel on a Raspberry Pi (or qemu -M raspi3b) and read its output over serial.",
+       "prereq": [
+        "t15m3l2"
+       ]
+      },
+      {
+       "id": "t15m3l5",
+       "title": "RISC-V",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "RISC-V Bare Bones",
+        "RISC-V Meaty Skeleton with QEMU virt board"
+       ],
+       "further": [
+        "HiFive-1 Bare Bones",
+        "PLIC",
+        "Advanced Interrupt Architecture",
+        "Devicetree",
+        "RISC-V"
+       ],
+       "why": "RISC-V is open, small and well specified, which makes it a clean second architecture to learn.",
+       "objectives": [
+        "After this lesson you can boot a kernel on QEMU's RISC-V virt board through OpenSBI.",
+        "After this lesson you can explain machine, supervisor and user modes and SBI calls."
+       ],
+       "checkpoint": "Port your Meaty Skeleton kernel to qemu-system-riscv64 -M virt and print through the SBI console.",
+       "prereq": [
+        "t15m3l1"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "t16",
+   "title": "Elective: Design Revisited",
+   "summary": "Go back to the decisions you made early, now that you have built the parts: language, kernel model and IPC, and how real systems compare.",
+   "goal": "Defend or change each entry in DECISIONS.md from experience, with one working experiment behind each.",
+   "modules": [
+    {
+     "id": "t16m1",
+     "title": "Revisit your decisions",
+     "summary": "The language and kernel-model choices, judged with what you know now.",
+     "lessons": [
+      {
+       "id": "t16m1l1",
+       "title": "Kernels in other languages: revisit the language decision",
+       "level": 2,
+       "minutes": 45,
+       "articles": [
+        "Rust",
+        "Go Bare Bones"
+       ],
+       "further": [
+        "Zig Bare Bones",
+        "Ada Bare Bones",
+        "Pascal Bare Bones",
+        "D Bare Bones",
+        "C Sharp Bare Bones",
+        "FreeBasic Bare Bones"
+       ],
+       "why": "C is the default, not a requirement. Rebuilding Bare Bones in another language shows what each language needs from a runtime.",
+       "objectives": [
+        "After this lesson you can list what runtime support a language needs in a freestanding kernel.",
+        "After this lesson you can weigh Rust, Zig, Ada and others for kernel work.",
+        "After this lesson you can link a non-C kernel with your existing boot stub."
+       ],
+       "checkpoint": "Rebuild the Bare Bones hello kernel in a second language and boot it in QEMU with the same GRUB ISO setup. Update the language entry in DECISIONS.md with what you learned.",
+       "prereq": [
+        "t3m1l2"
+       ]
+      },
+      {
+       "id": "t16m1l2",
+       "title": "IPC in depth",
+       "level": 3,
+       "minutes": 45,
+       "articles": [
+        "Message Passing Tutorial",
+        "IPC Data Copying methods"
+       ],
+       "further": [
+        "Remote Procedure Call",
+        "Pancakes:IPC EntryBased",
+        "Doors (IPC)",
+        "Unix Pipes"
+       ],
+       "why": "In a microkernel, IPC speed is the system's speed. These pages cover synchronous messages, copying strategies and RPC.",
+       "objectives": [
+        "After this lesson you can implement synchronous send/receive/reply.",
+        "After this lesson you can choose between copying, remapping and shared buffers.",
+        "After this lesson you can layer RPC on top of messages."
+       ],
+       "checkpoint": "Benchmark 10,000 round-trip messages between two processes and report the average cycles per round trip using RDTSC.",
+       "prereq": [
+        "t8m2l6"
+       ]
+      },
+      {
+       "id": "t16m1l3",
+       "title": "Kernel architectures compared",
+       "level": 3,
+       "minutes": 90,
+       "articles": [
+        "Modular Kernel",
+        "Exokernel"
+       ],
+       "further": [
+        "Microkernel",
+        "Monolithic Kernel",
+        "Hybrid Kernel",
+        "Multikernel",
+        "L4",
+        "Megalithic Kernel"
+       ],
+       "why": "You chose a kernel model before you had built processes, IPC or drivers. Now you have, and can judge the trade-offs from experience.",
+       "objectives": [
+        "After this lesson you can compare monolithic, micro, hybrid and exokernel designs on speed, safety and complexity.",
+        "After this lesson you can identify which of your drivers could move to user space.",
+        "After this lesson you can update your design with reasons."
+       ],
+       "checkpoint": "Move one driver (keyboard or serial) into a user-mode process that receives IRQ notifications by IPC, and measure keypress latency against the in-kernel version. Update the kernel-model entry in DECISIONS.md with the measurement.",
+       "prereq": [
+        "t16m1l2",
+        "t6m3l2",
+        "t5m2l2"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "t16m2",
+     "title": "The wider world",
+     "summary": "Real systems, research and the community.",
+     "lessons": [
+      {
+       "id": "t16m2l1",
+       "title": "Learn from real systems",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Xv6",
+        "Linux Kernel Primer"
+       ],
+       "further": [
+        "Notable Projects",
+        "Projects",
+        "Books",
+        "Academic Papers",
+        "Advanced Projects"
+       ],
+       "why": "Reading a complete small OS after building your own shows you what you did differently and what you missed.",
+       "objectives": [
+        "After this lesson you can build and boot xv6 in QEMU.",
+        "After this lesson you can trace a system call through xv6 or Linux.",
+        "After this lesson you can list three ideas to bring back into your kernel."
+       ],
+       "checkpoint": "Build and boot xv6 in QEMU, trace its fork/exec path, and write a comparison with your own process creation.",
+       "prereq": [
+        "t8m2l5"
+       ]
+      },
+      {
+       "id": "t16m2l2",
+       "title": "Where next: projects, papers and the community",
+       "level": 2,
+       "minutes": 40,
+       "articles": [
+        "Notable Projects",
+        "Academic Papers"
+       ],
+       "further": [
+        "Books",
+        "Projects",
+        "Xv6",
+        "Linux Kernel Primer",
+        "You Know Your OS Is Advanced When",
+        "Advanced Projects"
+       ],
+       "why": "Reading other kernels' code and design papers is how you keep improving once tutorials run out.",
+       "objectives": [
+        "After this lesson you can pick one hobby OS and one research paper to study next.",
+        "After this lesson you can compare your design with an existing system feature by feature."
+       ],
+       "checkpoint": "Choose one notable project, read how it handles a feature you have built (scheduler, VFS or memory), and write down one idea to adopt and one to reject.",
+       "prereq": [
+        "t6m3l2"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
