@@ -1,0 +1,4 @@
+cognialabs.si, www.cognialabs.si {
+    encode gzip zstd
+    reverse_proxy cognia:80
+}
