@@ -1,5 +1,6 @@
 /* Small DSP helpers for the journey sound: curves, procedural buffers (noise, grains, a wordless radio voice, the
-   reverb impulse) and waveshaper curves. Everything is generated at start, so the sound needs no audio files. */
+   reverb impulse) and waveshaper curves. Everything is generated, so the sound needs no audio files. The buffer
+   makers are plain functions of a sample rate (no AudioContext), so they also run in a worker (buffers.worker.ts). */
 
 export const R = Math.random
 export const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x)
@@ -73,11 +74,10 @@ function finish(raw: Float32Array, out: Float32Array, peakTo: number, fade: numb
 }
 
 /** stereo loopable noise */
-export function noiseBuffer(ac: BaseAudioContext, seconds: number, kind: 'white' | 'pink' | 'brown'): AudioBuffer {
-  const sr = ac.sampleRate
+export function noiseBuffer(sr: number, seconds: number, kind: 'white' | 'pink' | 'brown'): Float32Array[] {
   const n = Math.floor(seconds * sr)
   const fade = Math.floor(0.25 * sr)
-  const buf = ac.createBuffer(2, n, sr)
+  const buf = [new Float32Array(n), new Float32Array(n)]
   for (let ch = 0; ch < 2; ch++) {
     const raw = new Float32Array(n + fade)
     let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, br = 0
@@ -98,18 +98,17 @@ export function noiseBuffer(ac: BaseAudioContext, seconds: number, kind: 'white'
         raw[i] = br
       }
     }
-    finish(raw, buf.getChannelData(ch), 0.9, fade)
+    finish(raw, buf[ch], 0.9, fade)
   }
   return buf
 }
 
 /** crackle: sparse tiny impacts with a heavy-tailed size distribution (like dust hitting a probe's antenna) */
-export function dustBuffer(ac: BaseAudioContext, seconds: number, rate: number): AudioBuffer {
-  const sr = ac.sampleRate
+export function dustBuffer(sr: number, seconds: number, rate: number): Float32Array[] {
   const n = Math.floor(seconds * sr)
-  const buf = ac.createBuffer(2, n, sr)
+  const buf = [new Float32Array(n), new Float32Array(n)]
   for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch)
+    const d = buf[ch]
     let at = 0
     while (true) {
       at += -Math.log(1 - R()) / rate
@@ -128,12 +127,10 @@ export function dustBuffer(ac: BaseAudioContext, seconds: number, rate: number):
 }
 
 /** a cloud of soft glassy grains on the given pitches, panned across the stereo field */
-export function glassBuffer(ac: BaseAudioContext, seconds: number, freqs: readonly number[], perSecond: number): AudioBuffer {
-  const sr = ac.sampleRate
+export function glassBuffer(sr: number, seconds: number, freqs: readonly number[], perSecond: number): Float32Array[] {
   const n = Math.floor(seconds * sr)
-  const buf = ac.createBuffer(2, n, sr)
-  const L = buf.getChannelData(0)
-  const Rr = buf.getChannelData(1)
+  const L = new Float32Array(n)
+  const Rr = new Float32Array(n)
   const count = Math.floor(seconds * perSecond)
   for (let g = 0; g < count; g++) {
     const f = freqs[Math.floor(R() * freqs.length)] * (1 + (R() - 0.5) * 0.002)
@@ -159,16 +156,14 @@ export function glassBuffer(ac: BaseAudioContext, seconds: number, freqs: readon
     L[i] *= 0.9 / peak
     Rr[i] *= 0.9 / peak
   }
-  return buf
+  return [L, Rr]
 }
 
 /** a wordless "voice on the radio": a glottal pulse with phrase intonation through moving vowel formants,
     in phrases of syllables with pauses between them. Mono. */
-export function chatterBuffer(ac: BaseAudioContext, seconds: number): AudioBuffer {
-  const sr = ac.sampleRate
+export function chatterBuffer(sr: number, seconds: number): Float32Array[] {
   const n = Math.floor(seconds * sr)
-  const buf = ac.createBuffer(1, n, sr)
-  const out = buf.getChannelData(0)
+  const out = new Float32Array(n)
   const vowels = [[730, 1090, 2440], [530, 1840, 2480], [300, 2200, 3000], [570, 840, 2410], [440, 1020, 2240], [660, 1700, 2400]]
   // plan syllables
   type Syl = { a: number; b: number; f0: number; v: number[]; burst: boolean }
@@ -227,17 +222,16 @@ export function chatterBuffer(ac: BaseAudioContext, seconds: number): AudioBuffe
   let peak = 1e-9
   for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]))
   for (let i = 0; i < n; i++) out[i] *= 0.9 / peak
-  return buf
+  return [out]
 }
 
 /** stereo reverb impulse: a long, darkening space with a few early reflections */
-export function impulse(ac: BaseAudioContext, seconds: number, rt60: number): AudioBuffer {
-  const sr = ac.sampleRate
+export function impulse(sr: number, seconds: number, rt60: number): Float32Array[] {
   const n = Math.floor(seconds * sr)
   const pre = Math.floor(0.025 * sr)
-  const buf = ac.createBuffer(2, n, sr)
+  const buf = [new Float32Array(n), new Float32Array(n)]
   for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch)
+    const d = buf[ch]
     let y = 0
     for (let i = pre; i < n; i++) {
       const t = (i - pre) / sr
@@ -255,12 +249,11 @@ export function impulse(ac: BaseAudioContext, seconds: number, rt60: number): Au
 }
 
 /** noise that swells to a peak at `peak` seconds and then dies quickly: a reversed tail */
-export function swellBuffer(ac: BaseAudioContext, peak: number): AudioBuffer {
-  const sr = ac.sampleRate
+export function swellBuffer(sr: number, peak: number): Float32Array[] {
   const n = Math.floor((peak + 0.7) * sr)
-  const buf = ac.createBuffer(2, n, sr)
+  const buf = [new Float32Array(n), new Float32Array(n)]
   for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch)
+    const d = buf[ch]
     let y = 0
     for (let i = 0; i < n; i++) {
       const t = i / sr
@@ -270,6 +263,69 @@ export function swellBuffer(ac: BaseAudioContext, peak: number): AudioBuffer {
       d[i] = y * e * 1.3
     }
   }
+  return buf
+}
+
+/** half the sample rate: a windowed-sinc low-pass at a quarter of the rate, then every second sample. It wraps round
+    the ends, so a loopable buffer stays loopable. */
+export function halve(x: Float32Array): Float32Array {
+  const T = 15
+  // a half-band filter: besides the centre, only the odd taps are not zero
+  const taps: [number, number][] = [[0, 0.5]]
+  for (let k = 1; k <= T; k += 2) {
+    const h = (Math.sin((Math.PI * k) / 2) / (Math.PI * k)) * (0.5 + 0.5 * Math.cos((Math.PI * k) / (T + 1)))
+    taps.push([k, h], [-k, h])
+  }
+  const sum = taps.reduce((a, [, h]) => a + h, 0)
+  const len = x.length
+  const n = len >> 1
+  const out = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    let y = 0
+    for (const [k, h] of taps) {
+      let j = 2 * i + k
+      if (j < 0) j += len
+      else if (j >= len) j -= len
+      y += h * x[j]
+    }
+    out[i] = y / sum
+  }
+  return out
+}
+
+/** the sample rate the buffers are designed at */
+export const REF_SR = 48000
+/** where the lead-in swell peaks, in seconds */
+export const SWELL_PEAK = 2.6
+
+/** every generated buffer, as plain channel data at `sr` */
+export type Raw = { sr: number } & Record<'white' | 'pink' | 'brown' | 'dust' | 'swell' | 'glass' | 'chatter' | 'impulse', Float32Array[]>
+
+/** Make all the buffers for a context running at `sr`. At half the design rate they are made at the design rate and
+    halved, so they sound the same; at any other rate they are made directly. */
+export function makeRaw(sr: number): Raw {
+  const half = sr * 2 === REF_SR
+  const g = half ? REF_SR : sr
+  const raw: Raw = {
+    sr,
+    white: noiseBuffer(g, 4.3, 'white'),
+    pink: noiseBuffer(g, 6.7, 'pink'),
+    brown: noiseBuffer(g, 7.9, 'brown'),
+    dust: dustBuffer(g, 5.3, 70),
+    swell: swellBuffer(g, SWELL_PEAK),
+    // D minor pentatonic, two to three octaves up: sits over all four chords
+    glass: glassBuffer(g, 11, [74, 77, 79, 81, 84, 86, 89, 91, 93].map(midi), 7),
+    chatter: chatterBuffer(g, 13),
+    impulse: impulse(g, 6, 5.2),
+  }
+  if (half) for (const k of Object.keys(raw) as (keyof Raw)[]) if (k !== 'sr') raw[k] = raw[k].map(halve)
+  return raw
+}
+
+/** channel data into an AudioBuffer of the context */
+export function toBuffer(ac: BaseAudioContext, chans: Float32Array[]): AudioBuffer {
+  const buf = ac.createBuffer(chans.length, chans[0].length, ac.sampleRate)
+  chans.forEach((c, i) => buf.getChannelData(i).set(c))
   return buf
 }
 

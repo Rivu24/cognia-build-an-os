@@ -11,7 +11,7 @@ import { sfx } from '@/lib/sfx'
 import { cn } from '@/lib/utils'
 import { canJourney } from './capable'
 import { CAPTIONS, type ChapterId, type JourneyFrame } from './story'
-import { createJourneySound, type JourneySound } from './sound'
+import { createJourneySound, prepareJourneySound, type JourneySound } from './sound'
 import type { JourneyEngine } from './scene'
 
 const NAMES: Record<ChapterId, string> = {
@@ -125,6 +125,7 @@ export function Journey() {
         bootScreen.release()
         setReady(true)
         setAsk(true)
+        void prepareJourneySound() // the sound's buffers are made while the visitor reads the prompt
       })
       .catch(() => {
         if (cancelled) return

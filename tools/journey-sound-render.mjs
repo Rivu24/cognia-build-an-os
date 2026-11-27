@@ -1,7 +1,8 @@
 // Offline render of the journey sound: node tools/journey-sound-render.mjs [out.wav]
 // Loads src/components/journey/sound.ts from the Vite dev server in headless Chrome, plays a scripted ~110 s scroll
 // through the story into an OfflineAudioContext, writes a 48 kHz 16-bit stereo WAV and prints per-chapter stats
-// (peak, RMS, band energies).
+// (peak, RMS, band energies) and the cost (build ms on the main thread, render ms per second of audio).
+// SR=24000 renders at another sample rate.
 import { chromium } from 'playwright-core'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -18,10 +19,9 @@ page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && er
 await page.goto(BASE + 'src/components/journey/story.ts', { waitUntil: 'load' })
 
 const t0 = Date.now()
-const res = await page.evaluate(async () => {
-  const { renderJourney } = await import('/src/components/journey/sound.ts')
+const res = await page.evaluate(async (SR) => {
+  const { renderJourney, createJourneySound } = await import('/src/components/journey/sound.ts')
   const { CH, CORONA, chapterAt } = await import('/src/components/journey/story.ts')
-  const SR = 48000
   const DUR = 110
   // the scripted scroll: [time, p] with holds; eased between keys
   const KEYS = [
@@ -66,8 +66,16 @@ const res = await page.evaluate(async () => {
       },
     }
   }
+  // cost: the graph alone (what the "Sound on" click pays), then the whole render
+  const probe = createJourneySound({ context: new OfflineAudioContext(2, SR, SR) })
+  const tb = performance.now()
+  await probe.start()
+  const buildMs = Math.round(performance.now() - tb)
+  probe.dispose()
   const ctx = new OfflineAudioContext(2, SR * DUR, SR)
+  const tr = performance.now()
   const buf = await renderJourney(ctx, frameAt, 30)
+  const msPerSec = Math.round((performance.now() - tr - buildMs) / DUR)
   const L = buf.getChannelData(0)
   const R = buf.getChannelData(1)
 
@@ -130,10 +138,10 @@ const res = await page.evaluate(async () => {
   const bytes = new Uint8Array(wav.buffer)
   let bin = ''
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
-  return { stats, clips, bang: jump(tAt(CH.bang)), drop: jump(tAt(0.985)), wav: btoa(bin), bands: bands.map((b) => b[0]) }
-})
+  return { buildMs, msPerSec, stats, clips, bang: jump(tAt(CH.bang)), drop: jump(tAt(0.985)), wav: btoa(bin), bands: bands.map((b) => b[0]) }
+}, +(process.env.SR || 48000))
 fs.writeFileSync(out, Buffer.from(res.wav, 'base64'))
-console.log(`rendered in ${((Date.now() - t0) / 1000).toFixed(1)} s -> ${out}`)
+console.log(`rendered in ${((Date.now() - t0) / 1000).toFixed(1)} s -> ${out} | build ${res.buildMs} ms | ${res.msPerSec} ms per audio second`)
 console.log(['chapter'.padEnd(10), 'from', '  to', ' peak', '  rms', ' minRms', ...res.bands.map((b) => b.padStart(7))].join(' '))
 for (const s of res.stats) console.log([s.chapter.padEnd(10), String(s.from).padStart(4), String(s.to).padStart(4), String(s.peak).padStart(5), String(s.rms).padStart(5), String(s.minRms05s).padStart(7), ...s.bands.map((b) => String(b).padStart(7))].join(' '))
 console.log('samples at full scale:', res.clips, '| bang transient', JSON.stringify(res.bang), '| drop transient', JSON.stringify(res.drop))

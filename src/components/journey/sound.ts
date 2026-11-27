@@ -10,12 +10,16 @@
    objects placed around the listener with HRTF panners from the camera-space positions the scene publishes.
 
    createJourneySound() makes its AudioContext in start() (call it from a click). renderJourney() renders the whole
-   thing into an OfflineAudioContext for checking without a user gesture. */
+   thing into an OfflineAudioContext for checking without a user gesture.
+
+   Kept light for slow devices: the live context runs at 24 kHz (the whole mix sits under a 2.4 kHz low-pass, so
+   nothing is lost), branches are only connected while they sound, slow filter movement is computed once per block,
+   and the buffers are made in a worker ahead of the click (prepareJourneySound). */
 
 import { CH, CORONA, span, type JourneyFrame, type JourneyObjects } from './story'
 import {
-  CEIL_RANGE, R, ceilingCurve, chatterBuffer, clamp, clamp01, curve, dustBuffer, glassBuffer, holdAt, impulse,
-  makeSetter, midi, noiseBuffer, smooth, swellBuffer, tanhCurve, type Keys, type Setter,
+  CEIL_RANGE, R, REF_SR, SWELL_PEAK, ceilingCurve, clamp, clamp01, curve, holdAt, makeRaw, makeSetter, midi, smooth,
+  tanhCurve, toBuffer, type Keys, type Raw, type Setter,
 } from './sound/core'
 import { createMusic, type MusicLevels } from './sound/music'
 import * as V from './sound/voices'
@@ -34,6 +38,30 @@ export interface JourneySound {
 export type JourneySoundOptions = {
   /** render into this context instead of creating a live one (an OfflineAudioContext for checks) */
   context?: BaseAudioContext
+}
+
+/** the live context's sample rate: half the usual one, for half the work */
+const LIVE_SR = REF_SR / 2
+
+let prepared: Promise<Raw | null> | null = null
+/** Start making the buffers in a worker (once). Call it when the journey appears, so they are ready before the click.
+    Resolves with null if the worker cannot run; the buffers are then made on the spot. */
+export function prepareJourneySound(): Promise<Raw | null> {
+  prepared ??= new Promise((resolve) => {
+    try {
+      const w = new Worker(new URL('./sound/buffers.worker.ts', import.meta.url), { type: 'module' })
+      const done = (raw: Raw | null) => {
+        w.terminate()
+        resolve(raw)
+      }
+      w.onmessage = (e: MessageEvent<Raw>) => done(e.data)
+      w.onerror = () => done(null)
+      w.postMessage(LIVE_SR)
+    } catch {
+      resolve(null)
+    }
+  })
+  return prepared
 }
 
 /** the sub drop at the end of the dive */
@@ -72,9 +100,41 @@ const K = {
 
 /* ---------- the persistent graph ---------- */
 
-type Emit = { input: GainNode; lp: BiquadFilterNode; level: GainNode; panner: PannerNode; ref: number; d: number }
+/* A branch that is only connected while it sounds: nodes that cannot reach the output are not processed at all, so
+   the Sun's plasma, the station and the rest cost nothing outside their own chapters. */
+type Gate = { from: AudioNode; to: AudioNode[]; on: boolean; quietAt: number }
+/** how long a branch stays connected after its level went to zero (its fade and filter tails) */
+const GATE_HOLD = 4
+function setGate(g: Gate, sounding: boolean, t: number) {
+  if (sounding) {
+    g.quietAt = -1
+    if (!g.on) {
+      for (const d of g.to) g.from.connect(d)
+      g.on = true
+    }
+  } else if (g.on) {
+    if (g.quietAt < 0) g.quietAt = t
+    else if (t - g.quietAt > GATE_HOLD) {
+      for (const d of g.to) g.from.disconnect(d)
+      g.on = false
+    }
+  }
+}
 
-function build(ac: BaseAudioContext) {
+/** slow movement only: work the parameter out once per block instead of once per sample */
+function slow(...params: (AudioParam | undefined)[]) {
+  for (const p of params) {
+    try {
+      if (p) p.automationRate = 'k-rate'
+    } catch {
+      /* fixed rate in this browser */
+    }
+  }
+}
+
+type Emit = { input: GainNode; lp: BiquadFilterNode; level: GainNode; panner: PannerNode; gate: Gate; ref: number; d: number }
+
+function build(ac: BaseAudioContext, raw: Raw) {
   const t = ac.currentTime
   const gain = (v: number) => {
     const g = ac.createGain()
@@ -86,8 +146,10 @@ function build(ac: BaseAudioContext) {
     b.type = type
     b.frequency.value = f
     b.Q.value = q
+    slow(b.frequency, b.detune, b.Q)
     return b
   }
+  const gate = (from: AudioNode, ...to: AudioNode[]): Gate => ({ from, to, on: false, quietAt: -1 })
   const osc = (type: OscillatorType, f: number, detune = 0) => {
     const o = ac.createOscillator()
     o.type = type
@@ -119,16 +181,15 @@ function build(ac: BaseAudioContext) {
   }
 
   const B: V.Buffers = {
-    white: noiseBuffer(ac, 4.3, 'white'),
-    pink: noiseBuffer(ac, 6.7, 'pink'),
-    brown: noiseBuffer(ac, 7.9, 'brown'),
-    dust: dustBuffer(ac, 5.3, 70),
-    swell: swellBuffer(ac, 2.6),
-    swellPeak: 2.6,
+    white: toBuffer(ac, raw.white),
+    pink: toBuffer(ac, raw.pink),
+    brown: toBuffer(ac, raw.brown),
+    dust: toBuffer(ac, raw.dust),
+    swell: toBuffer(ac, raw.swell),
+    swellPeak: SWELL_PEAK,
   }
-  // D minor pentatonic, two to three octaves up: sits over all four chords
-  const glassBuf = glassBuffer(ac, 11, [74, 77, 79, 81, 84, 86, 89, 91, 93].map(midi), 7)
-  const chatterBuf = chatterBuffer(ac, 13)
+  const glassBuf = toBuffer(ac, raw.glass)
+  const chatterBuf = toBuffer(ac, raw.chatter)
 
   // master: mix -> inside lowpass -> mute -> master -> glue -> limiter (peaks near -3 dBFS) -> soft ceiling (-1.5 dBFS) -> out
   const mix = gain(1)
@@ -160,7 +221,7 @@ function build(ac: BaseAudioContext) {
   // reverb
   const revIn = gain(1)
   const conv = ac.createConvolver()
-  conv.buffer = impulse(ac, 6, 5.2)
+  conv.buffer = toBuffer(ac, raw.impulse)
   const revHP = filter('highpass', 90)
   const revOut = gain(0.55)
   revIn.connect(revHP).connect(conv).connect(revOut).connect(mix)
@@ -213,8 +274,7 @@ function build(ac: BaseAudioContext) {
     hp2.connect(bp).connect(g).connect(choir)
     lfo(0.07 + R() * 0.05, 90, bp.detune)
   }
-  choir.connect(duck)
-  choir.connect(chordRev)
+  const choirGate = gate(choir, duck, chordRev)
   // bass
   const clean = gain(1)
   cleanIn.connect(clean).connect(bassDuck)
@@ -263,14 +323,16 @@ function build(ac: BaseAudioContext) {
   const rumbleLP = filter('lowpass', 60, 0.8)
   const rumbleLP2 = filter('lowpass', 380)
   const rumble = gain(0)
-  brown.connect(rumbleLP).connect(shaper(2)).connect(rumbleLP2).connect(rumble).connect(bassDuck)
+  brown.connect(rumbleLP).connect(shaper(2)).connect(rumbleLP2).connect(rumble)
+  const rumbleGate = gate(rumble, bassDuck)
   // the Shepard riser into the dive: octave-spaced sines gliding up forever, plus a rising noise band
   const shepBus = gain(0)
   const shepHP = filter('highpass', 110)
   const shepLP = filter('lowpass', 5000, 0.5)
-  shepBus.connect(shepHP).connect(shepLP).connect(duck)
+  shepBus.connect(shepHP).connect(shepLP)
   const shepRev = gain(0.8)
-  shepLP.connect(shepRev).connect(revIn)
+  shepRev.connect(revIn)
+  const shepGate = gate(shepLP, duck, shepRev)
   const shep = Array.from({ length: 7 }, (_, k) => {
     const o = osc(k % 2 ? 'triangle' : 'sine', midi(26) * Math.pow(2, k))
     const g = gain(0)
@@ -282,7 +344,9 @@ function build(ac: BaseAudioContext) {
   white.connect(riserBP).connect(riser).connect(duck)
 
   // ----- emitters, placed with HRTF -----
-  const world = gain(1)
+  // HRTF panners get quieter as the sample rate drops (their kernels are resampled, not rescaled: measured 6 dB at
+  // half the rate), so the level is brought back to what it is at the design rate
+  const world = gain(REF_SR / ac.sampleRate)
   world.connect(mix)
   const worldRev = gain(0.5)
   world.connect(worldRev).connect(revIn)
@@ -296,8 +360,9 @@ function build(ac: BaseAudioContext) {
     panner.refDistance = 1
     panner.rolloffFactor = 0 // distance is handled by `level` and `lp`
     if (panner.positionZ) panner.positionZ.value = -1
-    input.connect(lp).connect(level).connect(panner).connect(world)
-    return { input, lp, level, panner, ref, d: 0 }
+    slow(panner.positionX, panner.positionY, panner.positionZ)
+    input.connect(lp).connect(level).connect(panner)
+    return { input, lp, level, panner, gate: gate(panner, world), ref, d: 0 }
   }
   const E = {
     singularity: emitter(60),
@@ -394,9 +459,9 @@ function build(ac: BaseAudioContext) {
 
   return {
     B, mix, insideLP, mute, master, revIn, fx, duck, bassDuck, bedLevel,
-    music, hp1, hp2, bright, tremLfo, wLL, wRL, wLR, wRR, chordLvl, chordRev, choir, clean, grit, bassBreath,
-    air, airLP, sheen, deep, glass, rush, rushBP, rushBP2, whoosh, whooshBP, whooshPan, rumble, rumbleLP,
-    shepBus, shepLP, shep, riser, riserBP,
+    music, hp1, hp2, bright, tremLfo, wLL, wRL, wLR, wRR, chordLvl, chordRev, choir, choirGate, clean, grit, bassBreath,
+    air, airLP, sheen, deep, glass, rush, rushBP, rushBP2, whoosh, whooshBP, whooshPan, rumble, rumbleLP, rumbleGate,
+    shepBus, shepLP, shepGate, shep, riser, riserBP,
     E, comb, combs, combLP, plasma, plasmaBP1, plasmaBP2, crackle, chatter, chatGate, staticGate, hum, humG,
     hiss, hissBP, swirl, swRot, world,
   }
@@ -409,6 +474,7 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
   const offline = !!opts.context
   let ctx: BaseAudioContext | null = null
   let G: Graph | null = null
+  let booting: Promise<void> | null = null
   let started = false
   let disposed = false
   let userMuted = false
@@ -560,7 +626,11 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
       const d = Math.max(1e-3, o.d)
       const near = clamp(Math.pow(e.ref / d, 0.55), 0.2, 1.25)
       const after = k === 'wormhole' ? 1 - 0.85 * smooth(DROP, 0.995, f.p) : 1 // quiet once through the throat
-      set(e.level.gain, clamp01(o.on) * near * after, t, 0.08)
+      const level = clamp01(o.on) * near * after
+      setGate(e.gate, level > 1e-4, t)
+      // a disconnected branch is not processed, so events sent to it would only pile up
+      if (!e.gate.on) continue
+      set(e.level.gain, level, t, 0.08)
       set(e.lp.frequency, 700 + 17000 * clamp01(e.ref / d), t, 0.1)
       if (o.on > 0.001) {
         const x = o.x / d, y = o.y / d, z = o.z / d
@@ -576,6 +646,7 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     const di = f.objs.iss.d
     if (issD >= 0 && dt > 0) issVr += ((di - issD) / dt - issVr) * 0.3
     issD = di
+    if (!g.E.iss.gate.on) return
     const shift = clamp(-issVr * 0.025, -0.1, 0.1)
     set(g.chatter.playbackRate, 1 + shift, t, 0.08)
     for (const o of g.hum) set(o.detune, 1200 * Math.log2(1 + shift), t, 0.08)
@@ -606,7 +677,9 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     set(g.wRR.gain, (1 + w) / 2, t, 0.3)
     set(g.wRL.gain, (1 - w) / 2, t, 0.3)
     set(g.wLR.gain, (1 - w) / 2, t, 0.3)
-    set(g.choir.gain, curve(K.choir, p), t, 0.5)
+    const ch = curve(K.choir, p)
+    setGate(g.choirGate, ch > 1e-3, t)
+    set(g.choir.gain, ch, t, 0.5)
     set(g.chordRev.gain, curve(K.chordRev, p), t, 0.5)
 
     // beds
@@ -631,15 +704,20 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     set(g.whooshPan.pan, f.mx * 0.4, t, 0.2)
 
     // the Sun
-    set(g.rumble.gain, 0.6 * smooth(0.02, 1, s), t, 0.3)
-    set(g.rumbleLP.frequency, 45 + 240 * s, t, 0.3)
-    set(g.comb.gain, 0.5 * smooth(0.1, 1, s), t, 0.3)
-    set(g.combLP.frequency, 500 + 2200 * s, t, 0.3)
-    for (const c of g.combs) set(c.dl.delayTime, 1 / (m.root() * c.m), t, 0.35)
-    set(g.plasma.gain, 0.35 * smooth(0.4, 1, s), t, 0.3)
-    set(g.plasmaBP1.frequency, 350 + 600 * s, t, 0.4)
-    set(g.plasmaBP2.frequency, 1100 + 1600 * s, t, 0.4)
-    set(g.crackle.gain, 0.12 * smooth(0.5, 1, s), t, 0.3)
+    setGate(g.rumbleGate, s > 0.02, t)
+    if (g.rumbleGate.on) {
+      set(g.rumble.gain, 0.6 * smooth(0.02, 1, s), t, 0.3)
+      set(g.rumbleLP.frequency, 45 + 240 * s, t, 0.3)
+    }
+    if (g.E.sun.gate.on) {
+      set(g.comb.gain, 0.5 * smooth(0.1, 1, s), t, 0.3)
+      set(g.combLP.frequency, 500 + 2200 * s, t, 0.3)
+      for (const c of g.combs) set(c.dl.delayTime, 1 / (m.root() * c.m), t, 0.35)
+      set(g.plasma.gain, 0.35 * smooth(0.4, 1, s), t, 0.3)
+      set(g.plasmaBP1.frequency, 350 + 600 * s, t, 0.4)
+      set(g.plasmaBP2.frequency, 1100 + 1600 * s, t, 0.4)
+      set(g.crackle.gain, 0.12 * smooth(0.5, 1, s), t, 0.3)
+    }
 
     // the probe's emission rises through its chapter (denser plasma beyond the heliopause)
     set(g.hissBP.frequency, 1800 + 1200 * span(CH.voyager, CH.cognia, p), t, 0.5)
@@ -648,9 +726,10 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     const d = span(CH.cognia, DROP, p)
     const live = p < DROP ? 1 : 0
     const shepLvl = curve(K.shep, p) * live
+    setGate(g.shepGate, shepLvl > 0.001, t)
     set(g.shepBus.gain, 0.05 * shepLvl, t, live ? 0.3 : 0.03)
     set(g.shepLP.frequency, 1500 + 6000 * d, t, 0.3)
-    if (shepLvl > 0.001 || g.shep.some((x) => x.g.gain.value > 1e-4)) {
+    if (shepLvl > 0.001 || (g.shepGate.on && g.shep.some((x) => x.g.gain.value > 1e-4))) {
       shepPhase += dt * (0.035 + 0.3 * d * d + 2 * Math.max(0, f.v))
       for (let k = 0; k < g.shep.length; k++) {
         const x = g.shep[k]
@@ -691,9 +770,9 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     }
   }
 
-  function boot(ac: BaseAudioContext) {
+  function boot(ac: BaseAudioContext, raw: Raw | null) {
     ctx = ac
-    G = build(ac)
+    G = build(ac, raw?.sr === ac.sampleRate ? raw : makeRaw(ac.sampleRate))
     G.music.onChord(onChord)
     prevP = -1
   }
@@ -702,15 +781,28 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     async start() {
       if (disposed) return
       userMuted = false
-      if (!ctx) {
-        if (opts.context) boot(opts.context)
+      if (!ctx && !booting) {
+        if (opts.context) boot(opts.context, null)
         else {
           const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
           if (!AC) return
-          boot(new AC({ latencyHint: 'playback' }))
-          document.addEventListener('visibilitychange', onVisibility)
+          // made (and woken) inside the click; the graph follows as soon as the worker's buffers are in
+          let live: AudioContext
+          try {
+            live = new AC({ latencyHint: 'playback', sampleRate: LIVE_SR })
+          } catch {
+            live = new AC({ latencyHint: 'playback' }) // this browser does not offer the low rate
+          }
+          live.resume().catch(() => {})
+          booting = prepareJourneySound().then((raw) => {
+            prepared = null // the context has its own copy now
+            if (disposed) return void live.close().catch(() => {})
+            boot(live, raw)
+            document.addEventListener('visibilitychange', onVisibility)
+          })
         }
       }
+      await booting
       const ac = ctx
       if (!ac) return
       if (ac instanceof AudioContext && ac.state !== 'running') {
