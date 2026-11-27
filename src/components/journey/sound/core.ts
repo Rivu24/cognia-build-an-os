@@ -319,7 +319,28 @@ export function makeRaw(sr: number): Raw {
     impulse: impulse(g, 6, 5.2),
   }
   if (half) for (const k of Object.keys(raw) as (keyof Raw)[]) if (k !== 'sr') raw[k] = raw[k].map(halve)
+  raw.impulse = reverbHead(raw.impulse, sr)
   return raw
+}
+
+/** The head of the reverb impulse, for the convolver (the tail is made another way, see reverb.ts). It is at most
+    12000 frames, which browsers convolve entirely on the audio thread, it fades out over its second half, and it
+    carries the gain a ConvolverNode would have given the whole impulse (the normalisation in the Web Audio spec). */
+export function reverbHead(full: Float32Array[], sr: number): Float32Array[] {
+  let sum = 0
+  for (const c of full) for (let i = 0; i < c.length; i++) sum += c[i] * c[i]
+  const power = Math.max(0.000125, Math.sqrt(sum / (full.length * full[0].length)))
+  const scale = (0.00125 / power) * (44100 / sr)
+  const n = Math.min(Math.floor(0.5 * sr), 12000, full[0].length)
+  const hold = Math.floor(n * 0.5)
+  return full.map((c) => {
+    const out = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const w = i < hold ? 1 : Math.pow(Math.cos((((i - hold) / (n - hold)) * Math.PI) / 2), 2)
+      out[i] = c[i] * scale * w
+    }
+    return out
+  })
 }
 
 /** channel data into an AudioBuffer of the context */

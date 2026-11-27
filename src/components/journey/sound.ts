@@ -14,7 +14,8 @@
 
    Kept light for slow devices: the live context runs at 24 kHz (the whole mix sits under a 2.4 kHz low-pass, so
    nothing is lost), branches are only connected while they sound, slow filter movement is computed once per block,
-   and the buffers are made in a worker ahead of the click (prepareJourneySound). */
+   the buffers are made in a worker ahead of the click (prepareJourneySound), and the reverb keeps off the browser's
+   helper thread (sound/reverb.ts). */
 
 import { CH, CORONA, span, type JourneyFrame, type JourneyObjects } from './story'
 import {
@@ -22,6 +23,7 @@ import {
   tanhCurve, toBuffer, type Keys, type Raw, type Setter,
 } from './sound/core'
 import { createMusic, type MusicLevels } from './sound/music'
+import { createReverb } from './sound/reverb'
 import * as V from './sound/voices'
 
 export interface JourneySound {
@@ -42,6 +44,12 @@ export type JourneySoundOptions = {
 
 /** the live context's sample rate: half the usual one, for half the work */
 const LIVE_SR = REF_SR / 2
+
+/** Output buffer in seconds. Long on purpose: a busy machine (the 3D scene, little free memory) holds the audio thread
+    up for a moment now and then, and with the usual 20 ms buffer each of those is a click. Measured on such a laptop:
+    hundreds of dropouts over the journey with 'playback', a handful with this. The sound trails the picture by this
+    much, which a slow scroll does not show. */
+const LATENCY = 0.2
 
 let prepared: Promise<Raw | null> | null = null
 /** Start making the buffers in a worker (once). Call it when the journey appears, so they are ready before the click.
@@ -144,7 +152,7 @@ function build(ac: BaseAudioContext, raw: Raw) {
   const filter = (type: BiquadFilterType, f: number, q = 0.707) => {
     const b = ac.createBiquadFilter()
     b.type = type
-    b.frequency.value = f
+    b.frequency.value = Math.min(f, b.frequency.maxValue) // the ceiling is half the sample rate
     b.Q.value = q
     slow(b.frequency, b.detune, b.Q)
     return b
@@ -220,11 +228,11 @@ function build(ac: BaseAudioContext, raw: Raw) {
 
   // reverb
   const revIn = gain(1)
-  const conv = ac.createConvolver()
-  conv.buffer = toBuffer(ac, raw.impulse)
+  const rev = createReverb(ac, toBuffer(ac, raw.impulse))
   const revHP = filter('highpass', 90)
   const revOut = gain(0.55)
-  revIn.connect(revHP).connect(conv).connect(revOut).connect(mix)
+  revIn.connect(revHP).connect(rev.input)
+  rev.output.connect(revOut).connect(mix)
   const fx = gain(1) // one-shot voices
   fx.connect(mix)
 
@@ -631,7 +639,7 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
       // a disconnected branch is not processed, so events sent to it would only pile up
       if (!e.gate.on) continue
       set(e.level.gain, level, t, 0.08)
-      set(e.lp.frequency, 700 + 17000 * clamp01(e.ref / d), t, 0.1)
+      set(e.lp.frequency, Math.min(e.lp.frequency.maxValue, 700 + 17000 * clamp01(e.ref / d)), t, 0.1)
       if (o.on > 0.001) {
         const x = o.x / d, y = o.y / d, z = o.z / d
         const p = e.panner
@@ -668,7 +676,7 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     m.levels(set, t, L)
     const s = clamp01(f.sun)
     set(g.chordLvl.gain, curve(K.chordLvl, p) * (1 + 0.15 * s), t, 0.3)
-    set(g.bright.frequency, curve(K.bright, p) * Math.pow(2, f.my * 0.35), t, 0.3)
+    set(g.bright.frequency, Math.min(g.bright.frequency.maxValue, curve(K.bright, p) * Math.pow(2, f.my * 0.35)), t, 0.3)
     const lc = curve(K.lowCut, p)
     set(g.hp1.frequency, lc, t, 0.3)
     set(g.hp2.frequency, lc, t, 0.3)
@@ -689,7 +697,7 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
     set(g.deep.gain, 0.5 * curve(K.deep, p), t, 0.5)
     set(g.glass.gain, 0.05 * curve(K.glass, p), t, 0.5)
     set(g.bedLevel.gain, curve(K.bed, p), t, 0.3)
-    set(g.insideLP.frequency, 20000 * Math.pow(0.12, clamp01(f.inside) * smooth(0.93, 0.975, p) * (1 - smooth(DROP, 1, p))), t, 0.2)
+    set(g.insideLP.frequency, Math.min(g.insideLP.frequency.maxValue, 20000 * Math.pow(0.12, clamp01(f.inside) * smooth(0.93, 0.975, p) * (1 - smooth(DROP, 1, p)))), t, 0.2)
 
     // speed rush (log-scaled camera speed) and scroll whoosh
     const sp = clamp01(Math.log10(1 + Math.max(0, f.speed)) / 5)
@@ -789,9 +797,9 @@ export function createJourneySound(opts: JourneySoundOptions = {}): JourneySound
           // made (and woken) inside the click; the graph follows as soon as the worker's buffers are in
           let live: AudioContext
           try {
-            live = new AC({ latencyHint: 'playback', sampleRate: LIVE_SR })
+            live = new AC({ latencyHint: LATENCY, sampleRate: LIVE_SR })
           } catch {
-            live = new AC({ latencyHint: 'playback' }) // this browser does not offer the low rate
+            live = new AC({ latencyHint: LATENCY }) // this browser does not offer the low rate
           }
           live.resume().catch(() => {})
           booting = prepareJourneySound().then((raw) => {
